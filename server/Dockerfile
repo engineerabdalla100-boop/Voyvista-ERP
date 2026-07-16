@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # 2. تحديد مجلد العمل داخل الحاوية
 WORKDIR /app
 
-# 3. تثبيت الأدوات اللازمة لبناء بعض مكتبات بايثون
+# 3. تثبيت الأدوات اللازمة لبناء بعض مكتبات بايثون (مثل psycopg2 لـ PostgreSQL)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
@@ -19,8 +19,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 6. نسخ كل ملفات ومجلدات المشروع بالكامل إلى الحاوية
 COPY . .
 
-# 7. فتح البورت 5000 اللي السيرفر شغال عليه
+# 7. تعريف الـ PYTHONPATH بشكل صريح داخل الحاوية حتى يرى بايثون المجلد الرئيسي وما يحتويه
+ENV PYTHONPATH=/app
+
+# 8. فتح البورت 5000
 EXPOSE 5000
 
-# 8. أمر تشغيل السيرفر (بنخليه يشغل app.py من جوه مجلد server)
-CMD ["python", "server/app.py"]
+# 9. تشغيل السيرفر من المسار الرئيسي مع تمرير الـ PYTHONPATH
+CMD ["python", "-m", "server.app"]
