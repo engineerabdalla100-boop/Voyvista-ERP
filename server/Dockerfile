@@ -24,4 +24,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # 8. تشغيل السيرفر باستخدام gunicorn من داخل مجلد server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "server.core.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "core.wsgi:application"]
