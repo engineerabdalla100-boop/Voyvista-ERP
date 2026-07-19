@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-!0!_0w07wtz#!wr)8$@%frhu7^gk-9%2$6=bsrcavkz^^18mub
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['erp.bootvoyvista.tech', '127.0.0.1', 'localhost']
 
 # Application definition
 
