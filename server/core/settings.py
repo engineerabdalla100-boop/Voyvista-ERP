@@ -75,19 +75,19 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# Database إعداد قاطع وقوي لقاعدة البيانات 🚀
-# السيرفر (Coolify) دايماً بيكون فيه متغير بيئة حقيقي اسمه DATABASE_URL
-# لو مش موجود في نظام التشغيل (يعني شغالين local على اللاب توب)، هيشغل SQLite فوراً ويتجاهل الـ .env القديم
-if os.environ.get('DATABASE_URL'):
-    DATABASES = {
-        'default': env.db('DATABASE_URL')
-    }
-else:
+# Database إعداد صارم وقاطع لمنع الاتصال الخارجي محلياً 🚀
+if DEBUG:
+    # محلياً على جهازك: SQLite دايماً وبدون أي شروط تانية
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
+    }
+else:
+    # على السيرفر (Coolify): يقرأ الـ PostgreSQL من السيرفر علطول
+    DATABASES = {
+        'default': env.db('DATABASE_URL')
     }
 
 
