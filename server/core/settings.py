@@ -25,8 +25,8 @@ environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 # قراءة الـ Secret Key من ملف الـ .env وأخذ القيمة القديمة كاحتياط لو مش موجود
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-!0!_0w07wtz#!wr)8$@%frhu7^gk-9%2$6=bsrcavkz^^18mub')
 
-# قراءة الـ Debug من ملف الـ .env
-DEBUG = env('DEBUG')
+# قراءة الـ Debug من ملف الـ .env (ولو مش موجود على جهازك هيعتبره True لتسهيل التطوير)
+DEBUG = env('DEBUG', default=True)
 
 ALLOWED_HOSTS = ['erp.bootvoyvista.tech', '127.0.0.1', 'localhost']
 
@@ -75,11 +75,19 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# Database
-# ربط السيرفر بـ PostgreSQL تلقائياً عبر الرابط الموجود في الـ .env 🐘
-DATABASES = {
-    'default': env.db('DATABASE_URL')
-}
+# Database إعداد مرن لقاعدة البيانات 🚀
+# لو في ملف الـ .env أو السيرفر فيه DATABASE_URL هيشتغل PostgreSQL، غير كده هيقلب SQLite تلقائياً محلياً
+if os.environ.get('DATABASE_URL') or env.str('DATABASE_URL', default=''):
+    DATABASES = {
+        'default': env.db('DATABASE_URL')
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
