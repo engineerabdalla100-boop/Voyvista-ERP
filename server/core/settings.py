@@ -75,9 +75,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# Database إعداد مرن لقاعدة البيانات 🚀
-# لو في ملف الـ .env أو السيرفر فيه DATABASE_URL هيشتغل PostgreSQL، غير كده هيقلب SQLite تلقائياً محلياً
-if os.environ.get('DATABASE_URL') or env.str('DATABASE_URL', default=''):
+# Database إعداد قاطع وقوي لقاعدة البيانات 🚀
+# السيرفر (Coolify) دايماً بيكون فيه متغير بيئة حقيقي اسمه DATABASE_URL
+# لو مش موجود في نظام التشغيل (يعني شغالين local على اللاب توب)، هيشغل SQLite فوراً ويتجاهل الـ .env القديم
+if os.environ.get('DATABASE_URL'):
     DATABASES = {
         'default': env.db('DATABASE_URL')
     }
