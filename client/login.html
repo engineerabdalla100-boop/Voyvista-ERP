@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | Voyvista ERP</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Playfair+Display:ital,wght@1,800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      --card-bg: #ffffff;
+      --primary-dark: #0f172a;
+      --brand-blue: #2563eb;
+      --text-main: #1e293b;
+      --text-sub: #64748b;
+      --border-color: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-gradient);
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 100%;
+    }
+
+    /* الطائرة في منتصف الشاشة */
+    .plane-wrapper {
+      position: absolute;
+      cursor: pointer;
+      z-index: 20;
+      text-align: center;
+      transition: transform 0.2s ease;
+    }
+
+    .plane-wrapper:hover {
+      transform: scale(1.1);
+    }
+
+    .plane-icon {
+      width: 110px;
+      height: 110px;
+      filter: drop-shadow(0 12px 20px rgba(37, 99, 235, 0.25));
+    }
+
+    .click-hint {
+      color: var(--brand-blue);
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: -5px;
+      animation: pulse 1.5s infinite;
+      user-select: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: translateY(0); }
+      50% { opacity: 0.3; transform: translateY(-4px); }
+    }
+
+    /* كارت تسجيل الدخول */
+    .login-card {
+      background: var(--card-bg);
+      padding: 44px 36px 36px 36px;
+      border-radius: 24px;
+      width: 400px;
+      box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.12), 0 0 1px rgba(0,0,0,0.1);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      position: relative;
+      opacity: 0;
+      transform: scale(0.85) translateY(30px);
+      pointer-events: none;
+      transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    body.takeoff .login-card {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: all;
+    }
+
+    /* اسم النظام Voyvista بارز وواضح جداً */
+    .brand-title {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #0f172a 0%, #2563eb 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+
+    .login-card p {
+      color: var(--text-sub);
+      font-size: 13.5px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .input-box {
+      margin-bottom: 18px;
+    }
+
+    .input-box label {
+      display: block;
+      color: var(--text-main);
+      font-size: 12.5px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .input-box input {
+      width: 100%;
+      padding: 13px 15px;
+      background: #f8fafc;
+      border: 1.5px solid var(--border-color);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .input-box input:focus {
+      border-color: var(--brand-blue);
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 13.5px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14.5px;
+      cursor: pointer;
+      margin-top: 8px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+      transition: all 0.2s;
+    }
+
+    .login-btn:hover {
+      background: linear-gradient(135deg, #1e293b 0%, #2563eb 100%);
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+    }
+
+    /* اسم الـ Owner فقط أسفل المربع */
+    .owner-signature {
+      margin-top: 28px;
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 800;
+      font-style: italic;
+      letter-spacing: 1px;
+      color: #0f172a;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.6s ease 0.3s;
+    }
+
+    body.takeoff .owner-signature {
+      opacity: 0.9;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="main-container">
+
+    <!-- الطائرة في منتصف الشاشة -->
+    <div class="plane-wrapper" id="plane-btn">
+      <svg class="plane-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3.5c-.5-.5-2.5 0-4 1.5L13.5 8.5 5.3 6.7c-.8-.2-1.6.1-2.1.7l-.7.8 5.6 4.3-3.2 3.2-2.4-.6-1 .9 3.5 2.7 2.7 3.5.9-1-.6-2.4 3.2-3.2 4.3 5.6.8-.7c.6-.5.9-1.3.7-2.1z"/>
+      </svg>
+      <div class="click-hint" id="click-hint">اضغط للبدء ✈️</div>
+    </div>
+
+    <!-- كارت تسجيل الدخول -->
+    <div class="login-card">
+      <h1 class="brand-title">Voyvista ERP</h1>
+      <p>تسجيل الدخول للنظام</p>
+
+      <form id="login-form">
+        <div class="input-box">
+          <label>اسم المستخدم / البريد</label>
+          <input type="text" id="username" placeholder="أدخل اسم المستخدم" required autocomplete="username">
+        </div>
+
+        <div class="input-box">
+          <label>كلمة المرور</label>
+          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="login-btn">تسجيل الدخول</button>
+      </form>
+    </div>
+
+    <!-- اسم الـ Owner فقط -->
+    <div class="owner-signature">
+      Haytham Ghoniem
+    </div>
+
+  </div>
+
+  <script src="/client/assets/js/config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script>
+    const planeBtn = document.getElementById('plane-btn');
+    const hint = document.getElementById('click-hint');
+
+    planeBtn.addEventListener('click', () => {
+      hint.style.opacity = '0';
+
+      gsap.timeline()
+        .to(planeBtn, { x: "+=4", yoyo: true, repeat: 4, duration: 0.05 })
+        .to(planeBtn, {
+          x: "70vw",
+          y: "-75vh",
+          scale: 1.4,
+          rotation: -30,
+          duration: 1.1,
+          ease: "power2.in"
+        });
+
+      setTimeout(() => {
+        document.body.classList.add('takeoff');
+      }, 350);
+    });
+  </script>
+  <script src="/client/login.js"></script>
+</body>
+</html>

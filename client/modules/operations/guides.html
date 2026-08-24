@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tour Guides | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); overflow: hidden; animation: vvModalIn 0.18s ease; }
+  @keyframes vvModalIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 9px; }
+  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 700px; font-size: 12px; }
+  .ledger thead th { text-align: left; font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+
+  .staff-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 280px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+  .staff-actions { display: flex; gap: 8px; }
+
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+
+  .lang-chip { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: var(--gold-soft); color: var(--gold-deep); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Tour Guides</h1>
+          <p>سجل المرشدين السياحيين — الاسم، اللغة، ورقم التواصل</p>
+        </div>
+      </div>
+
+      <div class="staff-toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="guides-search" placeholder="بحث بالاسم أو اللغة..." />
+        </div>
+        <div class="staff-actions">
+          <button type="button" class="btn btn--ghost" id="btn-export-guides-excel">📊 Excel/CSV</button>
+          <button type="button" class="btn btn--primary" id="btn-open-add-guide">+ إضافة مرشد سياحي</button>
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="ledger" id="guides-table">
+          <thead>
+            <tr><th>الاسم</th><th>اللغة</th><th>رقم الهاتف</th><th>تاريخ الإضافة</th><th>الإجراءات</th></tr>
+          </thead>
+          <tbody id="guides-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="guides-empty-state" style="display:none;"><p>لا يوجد مرشدون سياحيون مسجّلون بعد</p></div>
+
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-guide-form">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>
+        <span id="guide-modal-title">إضافة مرشد سياحي جديد</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-guide-form" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <input type="hidden" id="guide-editing-id" value="" />
+      <div class="vv-field"><label>الاسم *</label><input type="text" id="guide-name" placeholder="اسم المرشد السياحي..." /></div>
+      <div class="vv-field"><label>اللغة *</label><input type="text" id="guide-language" placeholder="مثال: عربي، إنجليزي، فرنساوي..." /></div>
+      <div class="vv-field"><label>رقم الهاتف *</label><input type="text" id="guide-phone" placeholder="01xxxxxxxxx" /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-guide-form" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-guide" type="button">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script src="/client/modules/operations/guides.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "guides", title: "Tour Guides" });
+  });
+</script>
+</body>
+</html>

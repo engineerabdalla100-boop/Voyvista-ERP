@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Events | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 780px; box-shadow: var(--shadow-lg); overflow: hidden; animation: vvModalIn 0.18s ease; }
+  @keyframes vvModalIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 9px; }
+  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .sub-block { background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin-bottom: 18px; }
+  .sub-block h4 { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 13px; margin-bottom: 10px; }
+  .sub-item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .sub-item-row input, .sub-item-row select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
+  .sub-item-remove { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #F2C4C4; background: #FBE2E2; color: #B02A2A; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .btn-add-sub-item { font-size: 11.5px; font-weight: 700; color: var(--gold-deep); background: transparent; border: 1px dashed var(--gold); border-radius: var(--radius-sm); padding: 6px 12px; cursor: pointer; margin-top: 4px; }
+  .spent-total-line { font-size: 13px; font-weight: 800; color: var(--gold-deep); margin-top: 10px; text-align: left; }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 12px; }
+  .ledger thead th { text-align: left; font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .staff-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 280px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+  .staff-actions { display: flex; gap: 8px; }
+
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Events</h1>
+          <p>سجل الفعاليات — المكان، المصروفات، عدد الأفراد، الشركات المشاركة، وفريق العمل</p>
+        </div>
+      </div>
+
+      <div class="staff-toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="events-search" placeholder="بحث بالمكان..." />
+        </div>
+        <div class="staff-actions">
+          <button type="button" class="btn btn--ghost" id="btn-export-events-excel">📊 Excel/CSV</button>
+          <button type="button" class="btn btn--primary" id="btn-open-add-event">+ إضافة فعالية</button>
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="ledger" id="events-table">
+          <thead>
+            <tr><th>المكان</th><th>التاريخ</th><th>إجمالي المصروف</th><th>عدد الأفراد</th><th>عدد الشركات</th><th>حجم الفريق</th><th>الإجراءات</th></tr>
+          </thead>
+          <tbody id="events-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="events-empty-state" style="display:none;"><p>لا توجد فعاليات مسجّلة بعد</p></div>
+
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-event-form">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>
+        <span id="event-modal-title">إضافة فعالية جديدة</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-event-form" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <input type="hidden" id="event-editing-id" value="" />
+
+      <div class="vv-field-row">
+        <div class="vv-field"><label>المكان *</label><input type="text" id="event-location" placeholder="مكان الفعالية..." /></div>
+        <div class="vv-field"><label>التاريخ *</label><input type="date" id="event-date" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>عدد الأفراد</label><input type="number" min="0" id="event-people-count" value="0" /></div>
+      </div>
+
+      <!-- Expense items — purchases/rentals branch off spending as details -->
+      <div class="sub-block">
+        <h4>المصروفات (مشتريات / استئجارات)</h4>
+        <div id="expense-items-list"></div>
+        <button type="button" class="btn-add-sub-item" id="btn-add-expense-item">+ إضافة بند صرف</button>
+        <div class="spent-total-line">إجمالي الصرف: <span id="event-total-spent">0.00</span></div>
+      </div>
+
+      <!-- Participating companies -->
+      <div class="sub-block">
+        <h4>الشركات المشاركة</h4>
+        <div id="companies-list"></div>
+        <button type="button" class="btn-add-sub-item" id="btn-add-company">+ إضافة شركة</button>
+      </div>
+
+      <!-- Team management -->
+      <div class="sub-block">
+        <h4>Team Management</h4>
+        <div id="team-list"></div>
+        <button type="button" class="btn-add-sub-item" id="btn-add-team-member">+ إضافة عضو فريق</button>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-event-form" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-event" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-event-view">
+  <div class="vv-modal" style="max-width:640px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/></svg>
+        <span id="event-view-title">تفاصيل الفعالية</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-event-view" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body" id="event-view-body"></div>
+  </div>
+</div>
+
+<script src="/client/modules/operations/events.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "events", title: "Events" });
+  });
+</script>
+</body>
+</html>

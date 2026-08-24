@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Staff | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 780px; box-shadow: var(--shadow-lg); overflow: hidden; animation: vvModalIn 0.18s ease; }
+  @keyframes vvModalIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 9px; }
+  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .photo-upload-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 18px; }
+  .photo-upload-box { border: 1.5px dashed var(--border); border-radius: var(--radius-md); padding: 12px; text-align: center; background: var(--canvas); position: relative; }
+  .photo-upload-box label.upload-label { font-size: 11.5px; font-weight: 700; color: var(--text-soft); display: block; margin-bottom: 8px; }
+  .photo-upload-box img { max-width: 100%; max-height: 110px; border-radius: 6px; display: block; margin: 0 auto 8px; object-fit: cover; }
+  .photo-upload-box input[type="file"] { font-size: 11px; width: 100%; }
+  .photo-upload-box .upload-hint { font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 12px; }
+  .ledger thead th { text-align: left; font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ledger tbody tr.staff-row--terminated { background: rgba(220, 60, 60, 0.06); }
+  .ledger tbody tr.staff-row--terminated td { color: #B02A2A; }
+
+  .staff-status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .staff-status-badge--active { background: var(--emerald-soft); color: var(--emerald); }
+  .staff-status-badge--terminated { background: #FBE2E2; color: #B02A2A; }
+
+  .staff-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 300px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+  .staff-actions { display: flex; gap: 8px; }
+
+  .thumb-cell img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
+  .thumb-cell .thumb-placeholder { width: 34px; height: 34px; border-radius: 50%; background: var(--canvas); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text-faint); }
+
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Staff</h1>
+          <p>سجل بيانات الموظفين — التوظيف، المستندات، وحالة العقد</p>
+        </div>
+      </div>
+
+      <div class="staff-toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="staff-search" placeholder="بحث بالاسم أو الوظيفة..." />
+        </div>
+        <div class="staff-actions">
+          <button type="button" class="btn btn--ghost" id="btn-export-staff-excel">📊 Excel/CSV</button>
+          <button type="button" class="btn btn--ghost" id="btn-export-staff-pdf">📄 PDF</button>
+          <button type="button" class="btn btn--primary" id="btn-open-add-staff">+ إضافة موظف</button>
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="ledger" id="staff-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>الاسم</th>
+              <th>الوظيفة</th>
+              <th>الهاتف</th>
+              <th>البريد الإلكتروني</th>
+              <th>تاريخ البداية</th>
+              <th>تاريخ النهاية</th>
+              <th>الحالة</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="staff-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="staff-empty-state" style="display:none;"><p>لا يوجد موظفون مسجّلون بعد</p></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================= Add/Edit Staff Modal ================= -->
+<div class="vv-modal-overlay" id="modal-staff-form">
+  <div class="vv-modal" style="max-width:720px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/></svg>
+        <span id="staff-modal-title">إضافة موظف جديد</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-staff-form" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <input type="hidden" id="staff-editing-id" value="" />
+
+      <div class="vv-field-row">
+        <div class="vv-field"><label>الاسم الكامل *</label><input type="text" id="staff-name" placeholder="اسم الموظف..." /></div>
+        <div class="vv-field"><label>الوظيفة (Position) *</label><input type="text" id="staff-position" placeholder="مثال: محاسب، مندوب مبيعات..." /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>رقم الهاتف *</label><input type="text" id="staff-phone" placeholder="01xxxxxxxxx" /></div>
+        <div class="vv-field"><label>البريد الإلكتروني</label><input type="email" id="staff-email" placeholder="name@example.com" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>تاريخ بدء العمل *</label><input type="date" id="staff-start-date" /></div>
+        <div class="vv-field">
+          <label>تاريخ انتهاء العقد (اتركه فارغًا لو لسه مستمر)</label>
+          <input type="date" id="staff-end-date" />
+        </div>
+      </div>
+      <div class="vv-field">
+        <label>ملاحظات (اختياري)</label>
+        <textarea id="staff-notes" rows="2" placeholder="أي ملاحظات إضافية..."></textarea>
+      </div>
+
+      <div class="photo-upload-grid">
+        <div class="photo-upload-box">
+          <label class="upload-label">صورة البروفايل الشخصية</label>
+          <img id="preview-profile-photo" style="display:none;" />
+          <input type="file" accept="image/*" id="upload-profile-photo" />
+          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+        </div>
+        <div class="photo-upload-box">
+          <label class="upload-label">البطاقة الشخصية — وش</label>
+          <img id="preview-id-front" style="display:none;" />
+          <input type="file" accept="image/*" id="upload-id-front" />
+          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+        </div>
+        <div class="photo-upload-box">
+          <label class="upload-label">البطاقة الشخصية — ضهر</label>
+          <img id="preview-id-back" style="display:none;" />
+          <input type="file" accept="image/*" id="upload-id-back" />
+          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+        </div>
+        <div class="photo-upload-box">
+          <label class="upload-label">صورة الفيش الجنائي</label>
+          <img id="preview-criminal-record" style="display:none;" />
+          <input type="file" accept="image/*" id="upload-criminal-record" />
+          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+        </div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-staff-form" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-staff" type="button">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= View Staff Details Modal ================= -->
+<div class="vv-modal-overlay" id="modal-staff-view">
+  <div class="vv-modal" style="max-width:560px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/></svg>
+        <span id="staff-view-title">بيانات الموظف</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-staff-view" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body" id="staff-view-body"></div>
+  </div>
+</div>
+
+<script src="/client/modules/operations/staff.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "staff", title: "Staff" });
+  });
+</script>
+</body>
+</html>

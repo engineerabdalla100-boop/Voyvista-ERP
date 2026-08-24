@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings | Voyvista ERP</title>
+  <link rel="stylesheet" href="/client/assets/css/style.css" />
+  <style>
+    .settings-container {
+      max-width: 800px;
+      margin: 30px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .settings-card {
+      background: var(--surface, #ffffff);
+      border-radius: var(--radius-lg, 12px);
+      padding: 24px;
+      box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.05));
+      border: 1px solid var(--border, #e2e8f0);
+    }
+    .settings-card h3 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 16px;
+      color: var(--text, #0f172a);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .settings-card__note {
+      font-size: 11.5px;
+      color: var(--text-faint, #94a3b8);
+      margin: -10px 0 16px;
+      line-height: 1.6;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border, #f1f5f9);
+    }
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+    .setting-info label {
+      font-weight: 600;
+      font-size: 13.5px;
+      display: block;
+    }
+    .setting-info p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--text-soft, #64748b);
+    }
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #cbd5e1;
+      transition: .2s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--gold-deep, #8C6A22);
+    }
+    input:checked + .slider:before {
+      transform: translateX(-20px);
+    }
+
+    .logo-upload-row { display: flex; align-items: center; gap: 16px; }
+    .logo-preview-box { width: 64px; height: 64px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border, #e2e8f0); background: var(--canvas, #f8fafc); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .logo-preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .logo-preview-box .logo-placeholder { font-size: 10px; color: var(--text-faint, #94a3b8); text-align: center; }
+    .save-status-msg { font-size: 12px; font-weight: 700; margin-inline-start: 12px; }
+    .save-status-msg--ok { color: var(--emerald, #1F9D6E); }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>الإعدادات (Settings)</h1>
+          <p>تخصيص الواجهة وتفضيلات الحساب المحلية</p>
+        </div>
+      </div>
+
+      <div class="settings-container">
+
+        <!-- قسم لوجو الشركة -->
+        <div class="settings-card">
+          <h3>🏢 لوجو الشركة</h3>
+          <p class="settings-card__note">اللوجو ده بيظهر في القائمة الجانبية لكل المستخدمين، وفي مستندات الـPDF (A4) اللي بيصدّرها النظام.</p>
+          <div class="logo-upload-row">
+            <div class="logo-preview-box" id="logo-preview-box">
+              <span class="logo-placeholder">بدون لوجو</span>
+            </div>
+            <div style="flex:1;">
+              <input type="file" accept="image/*" id="setting-logo-upload" />
+              <div style="font-size:10.5px; color:var(--text-faint); margin-top:6px;">صورة بحد أقصى 500 كيلوبايت. يُفضّل خلفية شفافة (PNG).</div>
+            </div>
+            <button type="button" class="btn btn--ghost" id="btn-remove-logo" style="white-space:nowrap;">إزالة اللوجو</button>
+          </div>
+        </div>
+
+        <!-- قسم المظهر والواجهة -->
+        <div class="settings-card">
+          <h3>🎨 المظهر والتفضيلات</h3>
+          <p class="settings-card__note">⚠️ الوضع الداكن واتجاه الواجهة بيتحفظوا هنا كتفضيل، لكن التفعيل الكامل على كل صفحات النظام محتاج تصميم مخصص لسه ما اتعملش — هيبان تنبيه واضح لو حاولت تفعّلهم دلوقتي.</p>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label>الوضع الداكن (Dark Mode)</label>
+              <p>تفعيل الألوان الداكنة لمريحة العين أثناء العمل</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-dark-mode">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label>اتجاه الواجهة (RTL / LTR)</label>
+              <p>التحكم في اتجاه عرض اللغة في النظام</p>
+            </div>
+            <select id="setting-direction" class="vv-select" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border);">
+              <option value="rtl">العربية (RTL)</option>
+              <option value="ltr">English (LTR)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- قسم البيانات الشخصية والجلسة -->
+        <div class="settings-card">
+          <h3>👤 بيانات الحساب المحلي</h3>
+
+          <div class="vv-field" style="margin-bottom:12px;">
+            <label style="font-size:12.5px; font-weight:600; display:block; margin-bottom:6px;">اسم الموظف الظاهر</label>
+            <input type="text" id="setting-user-name" class="vv-input" style="width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:6px; box-sizing:border-box;" />
+          </div>
+
+          <div style="display:flex; align-items:center;">
+            <button type="button" class="btn btn--primary" id="btn-save-settings">حفظ التغييرات</button>
+            <span class="save-status-msg" id="save-status-msg"></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "settings", title: "الإعدادات" });
+  });
+</script>
+<script src="/client/settings.js"></script>
+</body>
+</html>

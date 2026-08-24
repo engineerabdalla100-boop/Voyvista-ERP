@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Visas | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<script src="/client/assets/js/accounting-engine.js"></script>
+<script src="/client/modules/master_data/client_data_picker.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  .hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1040px; margin: 40px auto 0; }
+  .hub-card { background: var(--surface); border: none; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 28px 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; text-align: left; cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease; position: relative; overflow: hidden; }
+  .hub-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .hub-card::after { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 3px; background: var(--hub-accent, var(--gold)); }
+  .hub-card__icon { width: 50px; height: 50px; border-radius: 13px; display: flex; align-items: center; justify-content: center; background: var(--hub-accent-soft, var(--gold-soft)); color: var(--hub-accent, var(--gold-deep)); }
+  .hub-card__icon svg { width: 24px; height: 24px; }
+  .hub-card__title { font-family: var(--font-display); font-size: 16.5px; font-weight: 700; color: var(--text); }
+  .hub-card__desc { font-size: 12.5px; color: var(--text-soft); line-height: 1.6; }
+  .hub-card__cta { margin-top: auto; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--hub-accent, var(--gold-deep)); display: flex; align-items: center; gap: 6px; }
+  .hub-card__cta svg { width: 13px; height: 13px; }
+  .hub-card--invoices { --hub-accent: #C79A3B; --hub-accent-soft: #F5EBD3; }
+  .hub-card--bookings { --hub-accent: #3068E0; --hub-accent-soft: #E7EEFD; }
+  .hub-card--drive { --hub-accent: #1F9D6E; --hub-accent-soft: #E3F5EC; }
+
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 780px; box-shadow: var(--shadow-lg); overflow: hidden; animation: vvModalIn 0.18s ease; }
+  @keyframes vvModalIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 9px; }
+  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-tabs { display: flex; gap: 4px; background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 18px; width: fit-content; }
+  .vv-tab { padding: 7px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--text-soft); cursor: pointer; }
+  .vv-tab.is-active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+  .vv-tab-panel { display: none; }
+  .vv-tab-panel.is-active { display: block; }
+
+  .ledger-modal { max-width: 1350px !important; }
+  .compact-form-row { display: flex; flex-wrap: wrap; gap: 10px; background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; margin-bottom: 18px; align-items: flex-end; }
+  .compact-field { flex: 1 1 120px; min-width: 110px; display: flex; flex-direction: column; gap: 4px; }
+  .compact-field.wide { flex: 2 1 200px; }
+  .compact-field.extra-wide { flex: 3 1 280px; }
+  .compact-field label { font-size: 11px; font-weight: 700; color: var(--text-soft); white-space: nowrap; }
+  .compact-field input, .compact-field select { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--surface); color: var(--text); height: 34px; box-sizing: border-box; }
+  .compact-field input[readonly] { background: rgba(0,0,0,0.03); font-weight: 700; color: var(--gold-deep); }
+
+  .code-toggle-wrap { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .code-toggle-wrap input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
+
+  .sales-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 320px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+  .sales-actions { display: flex; gap: 8px; }
+  .view-toggle-group { display: flex; gap: 3px; background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; }
+  .view-toggle-btn { padding: 6px 14px; border-radius: 6px; font-size: 11.5px; font-weight: 700; color: var(--text-soft); cursor: pointer; border: none; background: transparent; font-family: inherit; }
+  .view-toggle-btn.is-active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+  .btn-client-data { background: var(--azure-soft, #E7EEFD); color: var(--azure); border: 1px solid var(--azure); font-size: 11.5px; font-weight: 700; padding: 7px 14px; border-radius: var(--radius-sm); cursor: pointer; }
+  .review-status-chip { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-inline-start: 6px; }
+  .review-status-chip--pending { background: var(--amber-soft); color: var(--amber); }
+
+  /* ================= Payment switch — lives in the registration form itself ================= */
+  .pay-switch-form { display: flex; gap: 6px; margin-top: 4px; }
+  .pay-switch-form__option { flex: 1; font-size: 11px; font-weight: 700; padding: 8px 6px; border-radius: 6px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; white-space: nowrap; }
+  .pay-switch-form__option:hover { border-color: var(--gold); }
+  .pay-switch-form__option.is-selected { border-color: var(--gold-deep); background: var(--gold-soft); color: var(--gold-deep); }
+  .pay-partial-form-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .pay-partial-form-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; }
+  .pay-remaining-preview { font-size: 11.5px; font-weight: 700; color: #B02A2A; white-space: nowrap; }
+
+  /* ================= Sales Report table — read-only payment status badge ================= */
+  .pay-badge-paid { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: var(--emerald-soft, #DCFCE7); color: var(--emerald, #1F9D6E); white-space: nowrap; }
+  .pay-badge-remaining { font-size: 10px; font-weight: 700; color: #B02A2A; white-space: nowrap; }
+  .pay-badge-none { font-size: 10px; color: var(--text-faint); }
+  .review-status-chip--reviewed { background: var(--emerald-soft); color: var(--emerald); }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 1200px; font-size: 12px; }
+  .ledger thead th { text-align: left; font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger tbody tr { page-break-inside: avoid; break-inside: avoid; }
+  .ledger .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ledger .profit-pos { color: #10B981; font-weight: 700; }
+  .ledger .profit-neg { color: #EF4444; font-weight: 700; }
+  .month-separator-row td { background: #3B82F6 !important; color: #FFFFFF !important; font-weight: 800 !important; font-size: 12px !important; letter-spacing: 0.05em; text-align: center; padding: 8px 12px !important; text-transform: uppercase; }
+
+  .vv-field { margin-bottom: 14px; }
+  .vv-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-soft); margin-bottom: 6px; }
+  .vv-field input, .vv-field select, .vv-field textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; color: var(--text); background: var(--surface); }
+  .vv-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  table.invoice-items { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  .invoice-items th { text-align: left; font-size: 11.5px; color: var(--text-faint); font-weight: 600; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+  .invoice-items td { padding: 6px; border-bottom: 1px solid var(--border); }
+  .invoice-items input { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; }
+  .row-remove-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: #EF4444; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .invoice-total-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 12px 6px 4px; font-family: var(--font-display); }
+
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 30px; text-align: center; background: var(--canvas); cursor: pointer; transition: border-color 0.2s ease; }
+  .drop-zone:hover { border-color: var(--gold); }
+  .file-list { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+  .file-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+
+  /* ================= Private Data Drive — Google-Drive-style folders ================= */
+  .drive-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .drive-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-soft); flex-wrap: wrap; }
+  .drive-crumb { cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .drive-crumb:hover { background: var(--gold-soft); }
+  .drive-crumb.is-current { color: var(--gold-deep); font-weight: 700; cursor: default; }
+  .drive-crumb.is-current:hover { background: none; }
+  .drive-crumb-sep { color: var(--text-faint); }
+
+  .drive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 6px; }
+  .drive-folder-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: 16px 12px; text-align: center; cursor: pointer; transition: all .15s ease; position: relative;
+  }
+  .drive-folder-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+  .drive-folder-card .folder-icon { font-size: 30px; margin-bottom: 8px; }
+  .drive-folder-card .folder-name { font-size: 12px; font-weight: 600; color: var(--text); word-break: break-word; }
+  .drive-folder-card .folder-meta { font-size: 10.5px; color: var(--text-faint); margin-top: 3px; }
+  .drive-folder-card .folder-delete-btn {
+    position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 5px;
+    border: none; background: rgba(0,0,0,0.06); color: var(--coral); font-size: 11px; display: flex;
+    align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s ease;
+  }
+  .drive-folder-card:hover .folder-delete-btn { opacity: 1; }
+  .drive-empty-hint { grid-column: 1/-1; font-size: 12px; color: var(--text-faint); padding: 10px 2px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Visas</h1>
+          <p>Choose one of the hubs below to manage the visas department</p>
+        </div>
+      </div>
+
+      <div id="dept-dashboard-view">
+      <div class="hub-grid">
+        <button class="hub-card hub-card--invoices" id="hub-open-pending" type="button">
+          <div class="hub-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          </div>
+          <div class="hub-card__title">Pending</div>
+          <div class="hub-card__desc">Hold a booking before it's fully confirmed — link it to an existing client code or a new one, tag it B2B/B2C, then Confirm to send it straight to Sales Report.</div>
+          <div class="hub-card__cta">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="hub-card hub-card--bookings" id="hub-open-bookings" type="button">
+          <div class="hub-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="2.2"/></svg>
+          </div>
+          <div class="hub-card__title">Bookings</div>
+          <div class="hub-card__desc">Add a confirmed sale directly and export your backup — opens as its own dedicated page.</div>
+          <div class="hub-card__cta">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="hub-card hub-card--drive" id="hub-open-client-data" type="button">
+          <div class="hub-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M15 20a4.5 4.5 0 0 1 8 0"/></svg>
+          </div>
+          <div class="hub-card__title">Client Data</div>
+          <div class="hub-card__desc">Pick or add a B2B/B2C traveler — no accounting access from here.</div>
+          <div class="hub-card__cta">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+      </div>
+
+
+      <!-- ================= SALES REPORT — always visible on the page now,
+           not hidden inside a modal. The "Bookings" button above still
+           opens the modal for Requests (Hold) + confirming into this table;
+           this ledger updates immediately either way. ================= -->
+      <div class="page-head" style="margin-top:38px;">
+        <div>
+          <h2 style="font-family:var(--font-display);font-size:17px;font-weight:700;">Latest</h2>
+          <p style="font-size:12.5px;">The 10 most recent confirmed visa sales</p>
+        </div>
+      </div>
+
+      <div class="sales-toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="sales-report-search" placeholder="Search client or file code..." />
+        </div>
+        <div class="view-toggle-group">
+          <button type="button" class="view-toggle-btn is-active" id="btn-view-all-sales">Sales Report</button>
+          <button type="button" class="view-toggle-btn" id="btn-view-pending-sales">Pending Report</button>
+        </div>
+        <button type="button" class="btn-client-data" id="btn-open-client-data">👤 Client Data</button>
+      </div>
+
+      <div id="printable-sales-area">
+        <div class="ledger-scroll">
+          <table class="ledger" id="sales-report-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Date</th><th>Application No.</th><th>Country / Visa Type</th><th>Client Name</th>
+                <th class="num">Rate</th><th class="num">Handling</th><th class="num">Net Rate</th>
+                <th>Supplier</th><th class="num">Selling</th><th class="num">Profit</th><th>Customer</th>
+                <th>File #</th><th>Note</th><th>Payment</th><th class="no-print-col">Action</th>
+              </tr>
+            </thead>
+            <tbody id="sales-report-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      </div>
+      <!-- ================= end dept-dashboard-view ================= -->
+
+      <div id="dept-detail-view" style="display:none;">
+        <div class="module-toolbar" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+          <h2 style="font-family:var(--font-display);font-size:18px;font-weight:700;">Bookings</h2>
+          <button class="btn btn--ghost" id="btn-back-dept-dashboard" type="button">← Back</button>
+        </div>
+
+        <form id="sales-form" class="compact-form-row">
+          <div class="compact-field"><label>Date</label><input type="date" id="sales-date" required /></div>
+          <div class="compact-field wide"><label>Application No.</label><input type="text" id="sales-app-no" placeholder="VS-2026-0031" /></div>
+          <div class="compact-field wide"><label>Country / Visa Type</label><input type="text" id="sales-country" placeholder="Schengen - Tourist" /></div>
+          <div class="compact-field extra-wide"><label>Client Name</label><input type="text" id="sales-client-name" placeholder="Ahmed Megahed" required /></div>
+          <div class="compact-field"><label>Rate</label><input type="number" min="0" id="sales-rate" value="0" step="0.01" /></div>
+          <div class="compact-field"><label>Handling</label><input type="number" min="0" id="sales-handling" value="0" step="0.01" /></div>
+          <div class="compact-field"><label>Net Rate</label><input type="text" id="sales-net-rate" value="0" readonly /></div>
+          <div class="compact-field wide"><label>Supplier</label><input type="text" id="sales-suppliers" placeholder="Embassy / Agent" /></div>
+          <div class="compact-field"><label>Selling Rate</label><input type="number" min="0" id="sales-selling-rate" value="0" step="0.01" /></div>
+          <div class="compact-field"><label>Currency</label>
+            <select id="sales-currency">
+              <option value="EGP">EGP (E£)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="SAR">SAR (ر.س)</option>
+              <option value="KWD">KWD (د.ك)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="CNY">CNY (¥)</option>
+              <option value="CAD">CAD ($)</option>
+            </select>
+          </div>
+          <div class="compact-field"><label>Profit</label><input type="text" id="sales-profit" value="0" readonly /></div>
+          <div class="compact-field wide"><label>Customer</label><input type="text" id="sales-customer" placeholder="اسم الدافع (اختياري)" /></div>
+          <div class="compact-field extra-wide">
+            <label>حالة الدفع</label>
+            <div class="pay-switch-form">
+              <button type="button" class="pay-switch-form__option" data-form-pay="cash">💵 Cash</button>
+              <button type="button" class="pay-switch-form__option" data-form-pay="instapay">📲 InstaPay</button>
+              <button type="button" class="pay-switch-form__option" data-form-pay="partial">🟡 دفع جزء</button>
+            </div>
+            <div class="pay-partial-form-row" id="sales-partial-row" style="display:none;">
+              <input type="number" min="0" step="0.01" id="sales-paid-amount" placeholder="المبلغ المدفوع" />
+              <span id="sales-remaining-preview" class="pay-remaining-preview"></span>
+            </div>
+          </div>
+          <div class="compact-field wide">
+            <div class="code-toggle-wrap">
+              <label for="sales-file-number">File/Family Code</label>
+              <input type="checkbox" id="toggle-existing-code" />
+              <span style="font-size:10px; color:var(--text-faint);">Link Existing</span>
+            </div>
+            <input type="text" id="sales-file-number" readonly />
+            <select id="sales-existing-code-select" style="display:none;"></select>
+          </div>
+          <div class="compact-field wide"><label>Note</label><input type="text" id="sales-note" placeholder="Remarks..." /></div>
+          <div class="compact-field" style="flex:0 0 auto;"><button class="btn btn--primary" type="submit" style="height:34px;">Add Sale</button></div>
+        </form>
+
+        <div style="margin-top:28px; padding-top:20px; border-top:1px solid var(--border);">
+          <h3 style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:12px;">Sales Report</h3>
+          <div class="ledger-scroll">
+            <table class="ledger" id="booking-sales-report-table">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Date</th><th>Application No.</th><th>Country / Visa Type</th><th>Client Name</th>
+                  <th class="num">Rate</th><th class="num">Handling</th><th class="num">Net Rate</th>
+                  <th>Supplier</th><th class="num">Selling</th><th class="num">Profit</th><th>Customer</th>
+                  <th>File #</th><th>Note</th><th>Payment</th><th class="no-print-col">Action</th>
+                </tr>
+              </thead>
+              <tbody id="booking-sales-report-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+          <button class="btn btn--ghost" id="btn-export-backup-pdf" type="button" style="color:var(--gold-deep); border-color:var(--gold);">📊 Export Backup (Excel/CSV)</button>
+          <button class="btn btn--dark" id="btn-close-annual-pdf" type="button">🔒 Close & Export Annual (Excel/CSV)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 1. INVOICES MODAL ================= -->
+<div class="vv-modal-overlay" id="modal-invoices">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12a1 1 0 0 1 1 1v17l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21V4a1 1 0 0 1 1-1z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg>
+        Visas — Invoices
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-invoices" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="vv-modal__body">
+      <div class="vv-tabs">
+        <div class="vv-tab is-active" data-tab-target="tab-create-invoice">Create Digital Invoice</div>
+        <div class="vv-tab" data-tab-target="tab-upload-invoice">Upload Paper Invoice</div>
+      </div>
+
+      <div class="vv-tab-panel is-active" id="tab-create-invoice">
+        <form id="invoice-create-form">
+          <div class="vv-field-row">
+            <div class="vv-field">
+              <label>Client Name</label>
+              <input type="text" id="inv-client-name" placeholder="e.g. John Doe" required />
+            </div>
+            <div class="vv-field">
+              <label>Invoice Date</label>
+              <input type="date" id="inv-date" required />
+            </div>
+          </div>
+
+          <div class="vv-field-row">
+            <div class="vv-field">
+              <label>Application Ref</label>
+              <input type="text" id="inv-ref" placeholder="e.g. VS-88392" />
+            </div>
+            <div class="vv-field">
+              <label>Currency</label>
+              <select id="inv-currency">
+                <option value="USD">USD ($)</option>
+                <option value="EGP">EGP (E£)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
+            </div>
+          </div>
+
+          <label style="font-size:12.5px; font-weight:600; margin-bottom:8px; display:block;">Invoice Line Items</label>
+          <table class="invoice-items">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="width: 80px;">Qty</th>
+                <th style="width: 110px;">Price</th>
+                <th style="width: 110px;">Total</th>
+                <th style="width: 32px;"></th>
+              </tr>
+            </thead>
+            <tbody id="invoice-items-body">
+              <tr>
+                <td><input type="text" class="inv-desc" placeholder="Schengen Visa Application" required /></td>
+                <td><input type="number" class="inv-qty" value="1" min="1" required /></td>
+                <td><input type="number" class="inv-price" value="0" min="0" step="0.01" required /></td>
+                <td><input type="text" class="inv-line-total" value="0.00" readonly /></td>
+                <td><button type="button" class="row-remove-btn">✕</button></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button type="button" class="btn btn--ghost" id="btn-add-inv-row" style="margin-bottom:14px; font-size:12px;">+ Add Item</button>
+
+          <div class="invoice-total-row">
+            <span>Total Amount:</span>
+            <strong id="inv-grand-total" style="font-size:18px; color:var(--gold-deep);">0.00 USD</strong>
+          </div>
+        </form>
+      </div>
+
+      <div class="vv-tab-panel" id="tab-upload-invoice">
+        <div class="drop-zone" id="invoice-drop-zone">
+          <p style="font-weight:600; color:var(--text);">Drag & Drop paper invoice (PDF, PNG, JPG)</p>
+          <p style="font-size:12px; color:var(--text-soft); margin-top:4px;">or click to browse from device</p>
+          <input type="file" id="invoice-file-input" accept="image/*,application/pdf" style="display:none;" />
+        </div>
+        <div class="file-list" id="invoice-file-list"></div>
+      </div>
+    </div>
+
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-invoices">Cancel</button>
+      <button class="btn btn--ghost" id="btn-print-voucher" type="button" style="color:var(--gold-deep); border-color:var(--gold);">🖨️ Print Voucher (PDF)</button>
+      <button class="btn btn--primary" id="btn-submit-invoice">Submit to Accounting</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 2. BOOKINGS MODAL — Requests (Hold) only now;
+     Sales Report lives directly on the page (see above). Confirming a
+     request here still moves it straight into that external table. ================= -->
+<div class="vv-modal-overlay" id="modal-pending">
+  <div class="vv-modal ledger-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="2.2"/></svg>
+        Pending — Visa Requests (Hold)
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-pending" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="vv-modal__body">
+      <div id="tab-requests">
+        <form id="requests-form" class="compact-form-row">
+          <div class="compact-field"><label>Date</label><input type="date" id="req-date" required /></div>
+          <div class="compact-field wide"><label>Application No.</label><input type="text" id="req-app-no" placeholder="VS-2026-0031" /></div>
+          <div class="compact-field wide"><label>Country / Visa Type</label><input type="text" id="req-country" placeholder="Schengen - Tourist" /></div>
+          <div class="compact-field extra-wide"><label>Client Name</label><input type="text" id="req-client-name" placeholder="Ahmed Megahed" required /></div>
+          <div class="compact-field"><label>Rate</label><input type="number" min="0" id="req-rate" value="0" step="0.01" /></div>
+          <div class="compact-field"><label>Handling</label><input type="number" min="0" id="req-handling" value="0" step="0.01" /></div>
+          <div class="compact-field"><label>Net Rate</label><input type="text" id="req-net-rate" value="0" readonly /></div>
+          <div class="compact-field wide"><label>Supplier</label><input type="text" id="req-suppliers" placeholder="Embassy / Agent" /></div>
+          <div class="compact-field"><label>Selling Rate</label><input type="number" min="0" id="req-selling-rate" value="0" step="0.01" /></div>
+          <div class="compact-field"><label>Currency</label>
+            <select id="req-currency">
+              <option value="EGP">EGP (E£)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="SAR">SAR (ر.س)</option>
+              <option value="KWD">KWD (د.ك)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="CNY">CNY (¥)</option>
+              <option value="CAD">CAD ($)</option>
+            </select>
+          </div>
+          <div class="compact-field"><label>Profit</label><input type="text" id="req-profit" value="0" readonly /></div>
+          <div class="compact-field wide"><label>Customer</label><input type="text" id="req-customer" placeholder="CASH" /></div>
+          <div class="compact-field wide"><label>File/Family Code</label><input type="text" id="req-file-number" readonly /></div>
+          <div class="compact-field wide"><label>Note</label><input type="text" id="req-note" placeholder="Remarks..." /></div>
+          <div class="compact-field" style="flex:0 0 auto;"><button class="btn btn--primary" type="submit" style="height:34px;">Save Request</button></div>
+        </form>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="requests-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Date</th><th>Application No.</th><th>Country / Visa Type</th><th>Client Name</th>
+                <th class="num">Rate</th><th class="num">Handling</th><th class="num">Net Rate</th>
+                <th>Supplier</th><th class="num">Selling</th><th class="num">Profit</th><th>Customer</th>
+                <th>File #</th><th>Note</th><th>Confirm</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="requests-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 3. PRIVATE DATA DRIVE MODAL ================= -->
+<div class="vv-modal-overlay" id="modal-drive">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><circle cx="12" cy="14" r="1.6"/></svg>
+        Private Data Drive
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-drive" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="vv-modal__body">
+      <div class="drive-toolbar">
+        <div class="drive-breadcrumb" id="drive-breadcrumb">
+          <span class="drive-crumb is-current" data-folder-id="">Root</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn--ghost" id="btn-new-folder" style="font-size:12px;">📁 New Folder</button>
+          <button type="button" class="btn btn--ghost" id="btn-drive-upload" style="font-size:12px;">⬆️ Upload File</button>
+        </div>
+      </div>
+      <div class="drop-zone" id="drive-drop-zone" style="padding:16px;margin-bottom:16px;">
+        <p style="font-size:12px; color:var(--text-soft);">or drag &amp; drop files here to upload into the current folder</p>
+        <input type="file" id="drive-file-input" multiple style="display:none;" />
+      </div>
+
+      <div class="drive-grid" id="drive-folders-grid"></div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;">
+        <h4 style="font-size:13px; font-weight:700; margin:0;">Files</h4>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-soft);cursor:pointer;">
+          <input type="checkbox" id="toggle-show-archived" style="width:14px;height:14px;" />
+          Show archived
+        </label>
+      </div>
+      <div class="file-list" id="drive-file-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    if (typeof VVComponents !== 'undefined') {
+      VVComponents.mount({ page: "visas", title: "Visas" });
+    }
+  });
+</script>
+<script src="/client/modules/operations/visas.js"></script>
+</body>
+</html>

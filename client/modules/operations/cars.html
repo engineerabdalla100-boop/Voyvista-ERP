@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cars | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 620px; box-shadow: var(--shadow-lg); overflow: hidden; animation: vvModalIn 0.18s ease; }
+  @keyframes vvModalIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 9px; }
+  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  /* ================= Category picker in the form ================= */
+  .category-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .category-option { border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 12px 8px; text-align: center; cursor: pointer; transition: all .15s ease; background: var(--canvas); }
+  .category-option svg { width: 26px; height: 26px; margin-bottom: 6px; }
+  .category-option .cat-label { font-size: 11px; font-weight: 700; }
+  .category-option.is-selected { border-color: var(--cat-color); background: var(--cat-color-soft); box-shadow: 0 0 0 2px var(--cat-color-soft); }
+  .category-option[data-category="economy"] { --cat-color: #6B7280; --cat-color-soft: #F1F2F4; }
+  .category-option[data-category="luxury"] { --cat-color: #B8860B; --cat-color-soft: #FBF3DC; }
+  .category-option[data-category="bus"] { --cat-color: #3068E0; --cat-color-soft: #E7EEFD; }
+  .category-option[data-category="van"] { --cat-color: #1F9D6E; --cat-color-soft: #E3F5EC; }
+  .category-option[data-category="economy"] svg, .category-option[data-category="economy"] .cat-label { color: #6B7280; }
+  .category-option[data-category="luxury"] svg, .category-option[data-category="luxury"] .cat-label { color: #B8860B; }
+  .category-option[data-category="bus"] svg, .category-option[data-category="bus"] .cat-label { color: #3068E0; }
+  .category-option[data-category="van"] svg, .category-option[data-category="van"] .cat-label { color: #1F9D6E; }
+
+  .profit-preview-line { font-size: 13px; font-weight: 800; text-align: left; margin-top: 8px; }
+
+  /* ================= Fancy car cards grid ================= */
+  .cars-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .car-card { border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; border: 1px solid var(--border); transition: transform .15s ease, box-shadow .15s ease; }
+  .car-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .car-card__banner { padding: 18px 18px 14px; position: relative; overflow: hidden; }
+  .car-card__banner::after { content: ''; position: absolute; inset: 0; opacity: .08; background: radial-gradient(circle at 85% -10%, currentColor, transparent 60%); }
+  .car-card--economy .car-card__banner { background: #F1F2F4; color: #6B7280; }
+  .car-card--luxury .car-card__banner { background: linear-gradient(135deg, #1a1a1a, #3a3226); color: #D4AF37; }
+  .car-card--bus .car-card__banner { background: #E7EEFD; color: #3068E0; }
+  .car-card--van .car-card__banner { background: #E3F5EC; color: #1F9D6E; }
+  .car-card__icon { width: 42px; height: 42px; position: relative; z-index: 1; }
+  .car-card__type-chip { position: absolute; top: 14px; left: 14px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,.85); color: inherit; z-index: 1; }
+  .car-card--luxury .car-card__type-chip { background: rgba(212,175,55,.18); color: #D4AF37; border: 1px solid rgba(212,175,55,.4); }
+  .car-card__title { font-family: var(--font-display); font-weight: 800; font-size: 16px; margin-top: 10px; position: relative; z-index: 1; }
+  .car-card__driver { font-size: 11.5px; opacity: .85; margin-top: 2px; position: relative; z-index: 1; }
+  .car-card__body { padding: 14px 18px 16px; }
+  .car-card__row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+  .car-card__row:last-of-type { border-bottom: none; }
+  .car-card__row .label { color: var(--text-faint); }
+  .car-card__row .value { font-weight: 700; color: var(--text); }
+  .car-card__profit { text-align: center; font-size: 15px; font-weight: 800; padding: 8px 0; margin-top: 8px; border-radius: var(--radius-sm); }
+  .car-card__profit.is-positive { background: var(--emerald-soft); color: var(--emerald); }
+  .car-card__profit.is-negative { background: #FBE2E2; color: #B02A2A; }
+  .car-card__actions { display: flex; gap: 8px; margin-top: 14px; }
+  .car-card__actions .btn-movement { flex: 1; }
+  .car-card__icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+  .car-card__icon-btn svg { width: 14px; height: 14px; }
+  .car-card__icon-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+
+  .staff-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 280px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+  .staff-actions { display: flex; gap: 8px; }
+  .category-filter { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--surface); }
+
+  .btn-movement { background: var(--azure-soft, #E7EEFD); color: var(--azure, #3068E0); border: 1px solid var(--azure, #3068E0); font-size: 11px; font-weight: 700; padding: 7px 12px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 750px; font-size: 12px; }
+  .ledger thead th { text-align: left; font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+  .profit-positive { color: var(--emerald); font-weight: 700; }
+  .profit-negative { color: #B02A2A; font-weight: 700; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Cars</h1>
+          <p>أسطول العربيات — النوع، السعر، الحركات، والأرباح</p>
+        </div>
+      </div>
+
+      <div class="staff-toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="cars-search" placeholder="بحث بالنوع أو اسم السواق..." />
+        </div>
+        <div class="staff-actions">
+          <select id="cars-category-filter" class="category-filter">
+            <option value="">كل الأنواع</option>
+            <option value="economy">اقتصادية</option>
+            <option value="luxury">فخمة</option>
+            <option value="bus">أوتوبيس</option>
+            <option value="van">فان (7-14 راكب)</option>
+          </select>
+          <button type="button" class="btn btn--ghost" id="btn-export-cars-excel">📊 Excel/CSV</button>
+          <button type="button" class="btn btn--ghost" id="btn-export-movements-excel">📊 كل الحركات</button>
+          <button type="button" class="btn btn--primary" id="btn-open-add-car">+ إضافة عربية</button>
+        </div>
+      </div>
+
+      <div class="cars-grid" id="cars-grid"></div>
+      <div class="empty-state" id="cars-empty-state" style="display:none;"><p>لا توجد عربيات مسجّلة بعد</p></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Car -->
+<div class="vv-modal-overlay" id="modal-car-form">
+  <div class="vv-modal" style="max-width:560px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 13l1.5-5A2 2 0 0 1 6.4 6.5h11.2A2 2 0 0 1 19.5 8L21 13"/><path d="M3 13h18v5a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H6v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5z"/></svg>
+        <span id="car-modal-title">إضافة عربية جديدة</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-car-form" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <input type="hidden" id="car-editing-id" value="" />
+
+      <label style="font-size:12px;font-weight:700;color:var(--text-soft);display:block;margin-bottom:8px;">نوع العربية *</label>
+      <div class="category-picker" id="category-picker">
+        <div class="category-option" data-category="economy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 15l1-4a1.5 1.5 0 0 1 1.4-1h11.2a1.5 1.5 0 0 1 1.4 1l1 4"/><path d="M4 15h16v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3z"/><circle cx="7.5" cy="18.5" r="1"/><circle cx="16.5" cy="18.5" r="1"/></svg>
+          <div class="cat-label">اقتصادية</div>
+        </div>
+        <div class="category-option" data-category="luxury">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 14l2-6a2 2 0 0 1 1.9-1.4h12.2A2 2 0 0 1 20 8l2 6"/><path d="M2 14h20v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-4z"/><circle cx="6.5" cy="19" r="1.3"/><circle cx="17.5" cy="19" r="1.3"/><path d="M12 4v3"/><circle cx="12" cy="3" r="1"/></svg>
+          <div class="cat-label">فخمة</div>
+        </div>
+        <div class="category-option" data-category="bus">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 10h18M7 4v13M17 4v13"/><circle cx="7" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>
+          <div class="cat-label">أوتوبيس</div>
+        </div>
+        <div class="category-option" data-category="van">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 16V8a1 1 0 0 1 1-1h9l5 4v5"/><path d="M3 16h15M13 7v4h5"/><circle cx="7" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>
+          <div class="cat-label">فان (7-14)</div>
+        </div>
+      </div>
+
+      <div class="vv-field-row">
+        <div class="vv-field"><label>موديل / وصف العربية *</label><input type="text" id="car-type" placeholder="مثال: هيونداي h1، مرسيدس فيانو..." /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>اسم السواق *</label><input type="text" id="car-driver" placeholder="اسم السواق..." /></div>
+        <div class="vv-field"><label>رقم السواق *</label><input type="text" id="car-driver-phone" placeholder="01xxxxxxxxx" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>سعر العربية</label><input type="number" min="0" step="0.01" id="car-price" value="0" /></div>
+        <div class="vv-field"><label>تاريخ الإصدار (خرجت امتى)</label><input type="date" id="car-issue-date" /></div>
+        <div class="vv-field"><label>تاريخ الرجوع المتوقع</label><input type="date" id="car-return-date" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>Net</label><input type="number" min="0" step="0.01" id="car-net" value="0" /></div>
+        <div class="vv-field"><label>Sale</label><input type="number" min="0" step="0.01" id="car-sale" value="0" /></div>
+      </div>
+      <div class="profit-preview-line">Profit: <span id="car-profit-preview">0.00</span></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-car-form" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-car" type="button">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Car Movements (History) -->
+<div class="vv-modal-overlay" id="modal-car-movements">
+  <div class="vv-modal" style="max-width:900px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 5l7 7-7 7M5 12h15"/></svg>
+        <span id="movements-modal-title">حركات العربية</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-car-movements" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <input type="hidden" id="movement-car-id" value="" />
+
+      <div style="background:var(--canvas); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px; margin-bottom:18px;">
+        <h4 style="font-family:'Cairo',sans-serif; font-weight:800; font-size:13px; margin-bottom:12px;">تسجيل حركة جديدة</h4>
+        <div class="vv-field-row">
+          <div class="vv-field"><label>من</label><input type="text" id="mv-from" placeholder="نقطة الانطلاق..." /></div>
+          <div class="vv-field"><label>إلى</label><input type="text" id="mv-to" placeholder="الوجهة..." /></div>
+          <div class="vv-field"><label>التاريخ</label><input type="date" id="mv-date" /></div>
+        </div>
+        <div class="vv-field-row" style="margin-top:14px;">
+          <div class="vv-field"><label>Net</label><input type="number" min="0" step="0.01" id="mv-net" value="0" /></div>
+          <div class="vv-field"><label>Selling</label><input type="number" min="0" step="0.01" id="mv-selling" value="0" /></div>
+          <div class="vv-field"><label>Profit (تلقائي)</label><input type="number" id="mv-profit" value="0" readonly style="background:rgba(0,0,0,0.03); font-weight:700; color:var(--gold-deep);" /></div>
+        </div>
+        <button class="btn btn--primary" id="btn-save-movement" type="button" style="margin-top:8px;">حفظ الحركة</button>
+      </div>
+
+      <h4 style="font-family:'Cairo',sans-serif; font-weight:800; font-size:13px; margin-bottom:10px;">سجل الحركات (History)</h4>
+      <div class="ledger-scroll">
+        <table class="ledger">
+          <thead><tr><th>التاريخ</th><th>من</th><th>إلى</th><th>Net</th><th>Selling</th><th>Profit</th><th></th></tr></thead>
+          <tbody id="movements-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="movements-empty-state" style="display:none; padding:20px;"><p>لا توجد حركات مسجّلة على هذه العربية بعد</p></div>
+    </div>
+  </div>
+</div>
+
+<script src="/client/modules/operations/cars.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "cars", title: "Cars" });
+  });
+</script>
+</body>
+</html>

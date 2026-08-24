@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IT Administration | Voyvista ERP</title>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  .it-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1100px;
+    margin: 30px 0 0;
+  }
+
+  .it-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease;
+    position: relative;
+  }
+  .it-card:hover { transform: translateY(-3px); border-color: var(--gold); }
+
+  .it-card__icon {
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--canvas);
+    color: var(--gold-deep);
+  }
+  .it-card__icon svg { width: 22px; height: 22px; }
+
+  .it-card__title { font-family: var(--font-display); font-size: 15.5px; font-weight: 700; color: var(--text); }
+  .it-card__desc { font-size: 12px; color: var(--text-soft); line-height: 1.6; }
+
+  .it-card__cta { margin-top: auto; font-size: 12px; font-weight: 600; color: var(--gold-deep); display: flex; align-items: center; gap: 6px; }
+  .it-card__cta svg { width: 12px; height: 12px; }
+
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 920px; box-shadow: var(--shadow-lg); overflow: hidden; }
+
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  .vv-modal__body { padding: 20px; max-height: 75vh; overflow-y: auto; }
+
+  .vv-field { margin-bottom: 14px; }
+  .vv-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-soft); margin-bottom: 6px; }
+  .vv-field input[type="text"], .vv-field input[type="password"], .vv-field select, .vv-field textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--text); background: var(--surface); box-sizing: border-box;
+  }
+
+  table.it-table { width: 100%; border-collapse: collapse; }
+  .it-table th { text-align: left; font-size: 11.5px; color: var(--text-faint); padding: 8px; border-bottom: 1px solid var(--border); }
+  .it-table td { padding: 10px 8px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+
+  .health-metric { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; }
+  .health-status { font-weight: 700; font-size: 12.5px; }
+  .health-status--ok { color: var(--emerald); }
+  .health-status--warn { color: var(--amber); }
+
+  .honest-note { background: var(--canvas); border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12px; color: var(--text-soft); margin-bottom: 16px; line-height: 1.6; }
+
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .status-badge--approved { background: var(--emerald-soft); color: var(--emerald); }
+  .status-badge--rejected { background: var(--coral-soft); color: var(--coral); }
+  .status-badge--pending { background: var(--amber-soft); color: var(--amber); }
+  .status-badge--apply_failed { background: #FDE8E8; color: #C0392B; }
+
+  .btn-approve { background: var(--emerald-soft); color: var(--emerald); border: 1px solid var(--emerald); font-family: inherit; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer; }
+  .btn-approve:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-reject { background: var(--coral-soft); color: var(--coral); border: 1px solid var(--coral); font-family: inherit; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer; margin-inline-start: 6px; }
+  .btn-reject:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-details { background: transparent; color: var(--text-faint); border: 1px solid var(--border); font-family: inherit; font-size: 10.5px; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer; margin-inline-start: 6px; }
+
+  .pending-count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 10px; background: var(--coral); color: #fff; font-size: 10px; font-weight: 800; margin-inline-start: 6px; vertical-align: middle; }
+
+  .audit-details-row td { background: var(--canvas); font-size: 11.5px; padding: 12px 14px; }
+  .audit-details-row .detail-line { margin-bottom: 4px; }
+  .audit-details-row .detail-line strong { color: var(--text-soft); margin-inline-end: 6px; }
+
+  .modules-access-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    background: var(--canvas);
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .modules-access-grid label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>IT Administration</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">System oversight, employee account provision, modules authorization, and system health</p>
+        </div>
+      </div>
+
+      <div class="it-grid">
+
+        <button class="it-card" id="it-open-audit" type="button">
+          <div class="it-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div class="it-card__title">Audit Log</div>
+          <div class="it-card__desc">Every Chart of Accounts change request — who requested, who reviewed, and the outcome.</div>
+          <div class="it-card__cta">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="it-card" id="it-open-employees" type="button">
+          <div class="it-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M15 20a4.5 4.5 0 0 1 8 0"/></svg>
+          </div>
+          <div class="it-card__title">Employee Accounts & Access</div>
+          <div class="it-card__desc">Create accounts, set passwords, assign roles, and grant explicit permissions across all 11 ERP modules.</div>
+          <div class="it-card__cta">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="it-card" id="it-open-health" type="button">
+          <div class="it-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div class="it-card__title">System Health</div>
+          <div class="it-card__desc">Real local storage usage across every module — how much data this browser is holding.</div>
+          <div class="it-card__cta">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="it-card" id="it-open-broadcast" type="button">
+          <div class="it-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+          </div>
+          <div class="it-card__title">Broadcast Message</div>
+          <div class="it-card__desc">Show a banner to everyone using this browser — real, but limited to this device (see note inside).</div>
+          <div class="it-card__cta">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="it-card" id="it-open-sessions" type="button">
+          <div class="it-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div class="it-card__title">Current Session</div>
+          <div class="it-card__desc">This device's session info. Multi-device session tracking needs a real backend — not yet available.</div>
+          <div class="it-card__cta">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="it-card" id="it-open-recovery" type="button">
+          <div class="it-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+          </div>
+          <div class="it-card__title">Recovery Vault</div>
+          <div class="it-card__desc">Restore accidentally deleted records — not yet built (see note inside for what this needs).</div>
+          <div class="it-card__cta">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+        <button class="it-card" id="it-open-reset-accounts" type="button" style="border-color:var(--coral); background:var(--coral-soft);">
+          <div class="it-card__icon" style="background:#fff; color:var(--coral);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 1 2.6 6.4M3 12v6h6"/></svg>
+          </div>
+          <div class="it-card__title" style="color:var(--coral);">Reset Accounts Data</div>
+          <div class="it-card__desc" style="color:var(--coral);">Wipe the Chart of Accounts, journal entries, and pending change requests — for testing/cleanup. Cannot be undone.</div>
+          <div class="it-card__cta" style="color:var(--coral);">Access <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </button>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 1: Audit Log -->
+<div class="vv-modal-overlay" id="modal-audit">
+  <div class="vv-modal" style="max-width: 1000px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">Audit Log — Change Requests (Pending Approvals live here too)</div>
+      <button class="vv-modal__close" data-close-modal="modal-audit">✕</button>
+    </div>
+    <div class="vv-modal__body">
+      <table class="it-table">
+        <thead><tr><th>Requested</th><th>Requested By</th><th>Change</th><th>Target</th><th>Status</th><th>Reviewed By</th><th>Actions</th></tr></thead>
+        <tbody id="audit-log-body"></tbody>
+      </table>
+      <div class="empty-state" id="audit-log-empty" style="display:none;"><p>No change requests recorded yet</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Employees & Granular Permissions Management -->
+<div class="vv-modal-overlay" id="modal-employees">
+  <div class="vv-modal" style="max-width: 820px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">Employee Accounts & Access Control</div>
+      <button class="vv-modal__close" data-close-modal="modal-employees">✕</button>
+    </div>
+    <div class="vv-modal__body">
+      
+      <!-- Account Provisioning Form -->
+      <form id="vv-it-user-form" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius-md); margin-bottom: 20px;">
+        <h3 style="font-size: 13.5px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Create Employee Account & Set Permissions</h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+          <div class="vv-field">
+            <label>Full Name</label>
+            <input type="text" id="it-u-fullname" placeholder="e.g. Mahmoud Ali" required />
+          </div>
+          <div class="vv-field">
+            <label>Username</label>
+            <input type="text" id="it-u-username" placeholder="e.g. mahmoud.sales" required />
+          </div>
+          <div class="vv-field">
+            <label>Password</label>
+            <input type="password" id="it-u-password" placeholder="Initial password" required />
+          </div>
+          <div class="vv-field">
+            <label>Primary Role</label>
+            <select id="it-u-role">
+              <option value="employee">Employee</option>
+              <option value="accountant">Accountant</option>
+              <option value="it_admin">IT Admin</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="vv-field">
+          <label>Allowed Sidebar Modules (Explicit Permissions):</label>
+          <div class="modules-access-grid">
+            <label><input type="checkbox" value="flights" class="it-mod-chk"> Flights</label>
+            <label><input type="checkbox" value="hotels" class="it-mod-chk"> Hotels</label>
+            <label><input type="checkbox" value="visas" class="it-mod-chk"> Visas</label>
+            <label><input type="checkbox" value="staff" class="it-mod-chk"> Staff</label>
+            <label><input type="checkbox" value="guides" class="it-mod-chk"> Tour Guides</label>
+            <label><input type="checkbox" value="cars" class="it-mod-chk"> Cars</label>
+            <label><input type="checkbox" value="events" class="it-mod-chk"> Events</label>
+            <label><input type="checkbox" value="sales" class="it-mod-chk"> Sales</label>
+            <label><input type="checkbox" value="data" class="it-mod-chk"> Data</label>
+            <label><input type="checkbox" value="accounts" class="it-mod-chk"> Accounts</label>
+            <label><input type="checkbox" value="owner" class="it-mod-chk"> Owner Panel</label>
+            <label><input type="checkbox" value="it_dashboard" class="it-mod-chk"> IT Dashboard</label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn--primary" style="width:100%; margin-top:8px;">Save Account & Grant Access</button>
+      </form>
+
+      <!-- Active Directory Table -->
+      <div id="it-employee-directory"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 3: System Health -->
+<div class="vv-modal-overlay" id="modal-health">
+  <div class="vv-modal" style="max-width: 600px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">System Health — Local Storage Usage</div>
+      <button class="vv-modal__close" data-close-modal="modal-health">✕</button>
+    </div>
+    <div class="vv-modal__body">
+      <div id="diagnostics-results"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 4: Broadcast Banner -->
+<div class="vv-modal-overlay" id="modal-broadcast">
+  <div class="vv-modal" style="max-width: 560px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">Broadcast Message</div>
+      <button class="vv-modal__close" data-close-modal="modal-broadcast">✕</button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="honest-note">Real, but scoped honestly: this shows a banner on every page <strong>in this browser</strong> (stored in local storage). There's no real-time push to other people's devices yet — that needs a backend with WebSockets or similar.</div>
+      <div class="vv-field">
+        <label>Severity</label>
+        <select id="broadcast-level">
+          <option value="info">Information</option>
+          <option value="warning">Warning</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+      <div class="vv-field">
+        <label>Message</label>
+        <textarea id="broadcast-message" rows="3" placeholder="e.g. Scheduled maintenance tonight at 10 PM..."></textarea>
+      </div>
+      <button class="btn btn--primary" id="btn-send-broadcast" type="button" style="width:100%; margin-bottom:14px;">Publish Banner</button>
+      <button class="btn btn--ghost" id="btn-clear-broadcast" type="button" style="width:100%;">Clear Active Banner</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 5: Current Session -->
+<div class="vv-modal-overlay" id="modal-sessions">
+  <div class="vv-modal" style="max-width: 560px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">Current Session</div>
+      <button class="vv-modal__close" data-close-modal="modal-sessions">✕</button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="honest-note">Multi-device session tracking, IP logging, and force-logout all require a real backend to know who else is logged in. None of that exists yet — this shows only what's true about the session you're using right now.</div>
+      <table class="it-table">
+        <tbody id="current-session-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 6: Recovery Vault -->
+<div class="vv-modal-overlay" id="modal-recovery">
+  <div class="vv-modal" style="max-width: 560px;">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">Recovery Vault</div>
+      <button class="vv-modal__close" data-close-modal="modal-recovery">✕</button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="honest-note">
+        Not built yet, and here's exactly why: every "delete" button across the app today removes a record permanently and immediately — there's no soft-delete step anywhere to recover from. Building this for real means changing every delete action app-wide to move records to a trash store first, then this page lists and restores from that store. That's real, scoped work — just ask if you'd like it built next.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/employees.js"></script>
+<script src="/client/modules/accounts/accounts_core.js"></script>
+<script src="/client/modules/accounts/permissions.js"></script>
+<script src="/client/modules/accounts/change_requests.js"></script>
+<script src="/client/modules/accounts/party_core.js"></script>
+<script src="/client/modules/accounts/chart_of_accounts.js"></script>
+<script src="/client/modules/accounts/manager_override.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "it_dashboard", title: "IT Administration" });
+  });
+</script>
+<script src="/client/modules/dashboard/it.js"></script>
+
+</body>
+</html>

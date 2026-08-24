@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Owner Panel | Voyvista ERP</title>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  .owner-hero {
+    position: relative;
+    background: radial-gradient(120% 160% at 100% 0%, #2c4675 0%, var(--ink) 55%), var(--ink);
+    border-radius: var(--radius-lg);
+    padding: 40px 42px;
+    color: #fff;
+    overflow: hidden;
+    margin-bottom: 30px;
+    border: 1px solid rgba(199, 154, 59, 0.25);
+  }
+  .owner-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(135deg, rgba(199, 154, 59, 0.07) 0px, rgba(199, 154, 59, 0.07) 1px, transparent 1px, transparent 30px);
+    pointer-events: none;
+  }
+  .owner-hero::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(199,154,59,0.28) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .owner-hero__row { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .owner-monogram { width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(199, 154, 59, 0.55); background: rgba(199, 154, 59, 0.10); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .owner-monogram svg { width: 20px; height: 20px; color: var(--gold); }
+  .owner-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+  .owner-hero__title { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 36px; line-height: 1.2; margin: 0 0 10px; letter-spacing: 0.01em; }
+  .owner-hero__sub { font-family: var(--font-body); font-size: 13px; color: var(--text-on-ink-soft); max-width: 460px; line-height: 1.75; }
+  .owner-hero__revenue { position: relative; text-align: left; background: rgba(255,255,255,0.05); border: 1px solid rgba(199, 154, 59, 0.3); border-radius: var(--radius-md); padding: 18px 24px; min-width: 220px; }
+  .owner-hero__revenue .label { font-size: 10.5px; color: var(--text-on-ink-soft); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .owner-hero__revenue .value { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 30px; color: var(--gold); }
+  .owner-hero__revenue .trend { font-size: 11.5px; color: #8CE0B8; margin-top: 6px; font-weight: 600; font-family: var(--font-body); }
+  .owner-section-title { display: flex; align-items: center; justify-content: space-between; margin: 36px 0 16px; }
+  .owner-section-title h2 { font-family: var(--font-display); font-weight: 700; font-size: 16.5px; color: var(--text); }
+  .owner-section-title .hint { font-size: 11px; font-weight: 500; color: var(--text-faint); margin-inline-start: 8px; }
+  .owner-report-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .sales-report-balance-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 16px 20px; }
+  .sales-report-balance-note { font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
+  .sales-report-currency-line { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 13.5px; }
+  .sales-report-currency-line:last-of-type { border-bottom: none; }
+  .sales-report-currency-line__label { color: var(--text-soft); font-weight: 600; }
+  .sales-report-currency-line__value { font-family: var(--font-display); font-weight: 800; color: var(--gold-deep); font-size: 15px; }
+  .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 18px 20px; }
+  .stat-tile__icon { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; background: var(--tile-bg, var(--gold-soft)); color: var(--tile-fg, var(--gold-deep)); margin-bottom: 14px; }
+  .stat-tile__icon svg { width: 19px; height: 19px; }
+  .stat-tile__value { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--text); }
+  .stat-tile__currency-line { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--text); }
+  .stat-tile__currency-line + .stat-tile__currency-line { margin-top: 2px; }
+  .stat-tile__label { font-size: 12px; color: var(--text-soft); margin: 3px 0 0; }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 20px; }
+  .chart-card h3 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 17px; margin-bottom: 14px; color: var(--text); }
+  .chart-card__canvas-wrap { position: relative; height: 210px; }
+  .chart-legend { display: flex; justify-content: center; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+  .chart-legend__item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-soft); }
+  .chart-legend__dot { width: 9px; height: 9px; border-radius: 50%; }
+  .pending-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 8px 20px; }
+  .pending-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 2px; border-bottom: 1px solid var(--border); }
+  .pending-item:last-child { border-bottom: none; }
+  .pending-item__name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .pending-item__meta { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+  .dept-tag { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+  .dept-tag--flights { background: #E7EEFD; color: #3068E0; }
+  .dept-tag--hotels { background: #F5EBD3; color: #C79A3B; }
+  .dept-tag--visas { background: #E3F5EC; color: #1F9D6E; }
+  #owner-pending-approvals .approval-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 10px; }
+  #owner-pending-approvals .approval-card__row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  #owner-pending-approvals .diff-line { font-size: 11.5px; margin-bottom: 3px; }
+  .btn-approve { background: var(--emerald-soft); color: var(--emerald); border: 1px solid var(--emerald); font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; }
+  .btn-reject { background: var(--coral-soft); color: var(--coral); border: 1px solid var(--coral); font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; margin-inline-start: 8px; }
+
+  /* ================= Full Audit History log ================= */
+  .audit-log-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 16px 18px; }
+  .audit-log-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .audit-log-toolbar input[type="text"], .audit-log-toolbar select {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text);
+  }
+  .audit-log-toolbar input[type="text"] { flex: 1; min-width: 180px; }
+  .audit-status-chip { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .audit-status-chip--approved { background: var(--emerald-soft); color: var(--emerald); }
+  .audit-status-chip--pending { background: var(--amber-soft); color: var(--amber); }
+  .audit-status-chip--rejected { background: var(--coral-soft); color: var(--coral); }
+  .audit-status-chip--apply_failed { background: var(--coral-soft); color: var(--coral); }
+  #audit-log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #audit-log-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  #audit-log-table td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .audit-diff-cell { max-width: 260px; font-size: 11px; color: var(--text-soft); }
+  .owner-quicklinks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .quicklink-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 22px 14px; text-align: center; box-shadow: var(--shadow-sm); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .quicklink-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--gold); }
+  .quicklink-card__icon { width: 44px; height: 44px; border-radius: 50%; background: var(--canvas); color: var(--gold-deep); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; transition: background .15s ease, color .15s ease; }
+  .quicklink-card:hover .quicklink-card__icon { background: var(--ink); color: var(--gold); }
+  .quicklink-card__icon svg { width: 19px; height: 19px; }
+  .quicklink-card__label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .owner-drive-card { background: var(--ink); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 26px 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .owner-drive-card__icon { width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(199,154,59,0.5); background: rgba(199,154,59,0.1); color: var(--gold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .owner-drive-card__icon svg { width: 22px; height: 22px; }
+  .owner-drive-card__text { flex: 1; min-width: 200px; }
+  .owner-drive-card__text h3 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 18px; color: #fff; margin-bottom: 4px; }
+  .owner-drive-card__text p { font-size: 12px; color: var(--text-on-ink-soft); }
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15,26,48,.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 620px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal__header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight:700; font-size:15px; display:flex; align-items:center; gap:9px; }
+  .vv-modal__title svg { width:16px; height:16px; color: var(--gold-deep); }
+  .vv-modal__close { width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-soft); display:flex; align-items:center; justify-content:center; }
+  .vv-modal__close svg { width:14px; height:14px; }
+  .vv-modal__body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+  .owner-file-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius: var(--radius-sm); font-size:12.5px; margin-bottom: 8px; }
+  .owner-file-row svg { width:15px; height:15px; color: var(--text-faint); flex-shrink:0; }
+  .owner-file-row .name { flex:1; }
+  .owner-file-row .remove-btn { width:26px; height:26px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color: var(--coral); display:flex; align-items:center; justify-content:center; }
+  .owner-file-row .remove-btn svg { width:12px; height:12px; }
+  @media (max-width: 1100px) {
+    .owner-report-grid { grid-template-columns: repeat(2, 1fr); }
+    .owner-quicklinks { grid-template-columns: repeat(3, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+
+      <div class="owner-hero">
+        <div class="owner-hero__row">
+          <div>
+            <div class="owner-monogram">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 8l4 3 5-6 5 6 4-3-2 11H5L3 8z"/></svg>
+            </div>
+            <div class="owner-eyebrow">Owner Panel</div>
+            <div class="owner-hero__title" id="owner-welcome-title">Welcome back</div>
+            <div class="owner-hero__sub">Here's a real-time snapshot of your business — full access to Flights, Hotels &amp; Visas retained, plus your own file space.</div>
+          </div>
+          <div class="owner-hero__revenue">
+            <div class="label">Total Revenue</div>
+            <div class="value" id="owner-total-revenue">—</div>
+            <div class="trend" id="owner-revenue-trend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="owner-section-title">
+        <h2>Financial Overview</h2>
+        <button class="btn btn--ghost" id="btn-refresh-reports" type="button">Refresh</button>
+      </div>
+
+      <div class="owner-report-grid" id="owner-report-grid"></div>
+
+      <div class="owner-section-title">
+        <h2>Sales Report Balance <span class="hint">رقم توثيقي من تقرير المبيعات — ليس رصيد الخزينة الفعلي</span></h2>
+      </div>
+      <div class="sales-report-balance-panel" id="sales-report-balance-panel"></div>
+
+      <div class="owner-section-title">
+        <h2>Performance Overview</h2>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Sales by Department</h3>
+          <div class="chart-card__canvas-wrap"><canvas id="chart-sales-by-dept"></canvas></div>
+          <div class="chart-legend" id="legend-sales-by-dept"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Net Profit by Department</h3>
+          <div class="chart-card__canvas-wrap"><canvas id="chart-profit-by-dept"></canvas></div>
+          <div class="chart-legend" id="legend-profit-by-dept"></div>
+        </div>
+      </div>
+
+      <div class="owner-section-title">
+        <h2>Pending Change Requests <span class="hint">Chart of Accounts — Maker-Checker</span></h2>
+      </div>
+      <div id="owner-pending-approvals"></div>
+
+      <div class="owner-section-title">
+        <h2>Full Audit History <span class="hint">كل موديول، كل تعديل، بالموظف المسؤول</span></h2>
+        <button class="btn btn--ghost" id="btn-export-audit-log" type="button">📊 تصدير Excel/CSV كامل</button>
+      </div>
+      <div class="audit-log-panel">
+        <div class="audit-log-toolbar">
+          <input type="text" id="audit-log-search" placeholder="بحث بالموظف أو العنصر..." />
+          <select id="audit-log-module-filter">
+            <option value="">كل الموديولات</option>
+            <option value="chart_of_accounts">شجرة الحسابات</option>
+            <option value="party">جهات (Party)</option>
+            <option value="journal_entries">قيود يومية</option>
+            <option value="vouchers">سندات</option>
+            <option value="custody">عهد</option>
+            <option value="expenses">مصروفات</option>
+            <option value="treasury">خزينة</option>
+          </select>
+          <select id="audit-log-status-filter">
+            <option value="">كل الحالات</option>
+            <option value="pending">بانتظار الاعتماد</option>
+            <option value="approved">معتمد</option>
+            <option value="rejected">مرفوض</option>
+            <option value="apply_failed">تعذّر التطبيق</option>
+          </select>
+        </div>
+        <div class="ledger-scroll" style="max-height:420px; overflow-y:auto;">
+          <table id="audit-log-table">
+            <thead>
+              <tr><th>التاريخ</th><th>الموظف</th><th>الموديول</th><th>النوع</th><th>العنصر</th><th>التفاصيل</th><th>الحالة</th><th>راجع بواسطة</th></tr>
+            </thead>
+            <tbody id="audit-log-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="audit-log-empty" style="display:none;"><p>لا توجد سجلات مطابقة</p></div>
+      </div>
+
+      <!-- Employee Directory + Recent Pending Requests — temporarily
+           removed from this page per request (4 new sections coming);
+           the underlying JS (renderEmployeeDirectory/renderPendingRequests
+           in owner.js) is still intact, just not mounted/called here. -->
+
+      <div class="owner-section-title">
+        <h2>Quick Access</h2>
+      </div>
+
+      <div class="owner-quicklinks">
+        <a class="quicklink-card" href="/client/modules/operations/flights.html">
+          <div class="quicklink-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 3.5L4 14l3 1 2-2.5 3 6 1.5-1L12 10l6-3.5c1-.6 1-2 0-2.6-.7-.4-1.5-.3-2.2.1L10.5 8"/></svg>
+          </div>
+          <div class="quicklink-card__label">Flights</div>
+        </a>
+        <a class="quicklink-card" href="/client/modules/operations/hotels.html">
+          <div class="quicklink-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15"/><path d="M14 10h6a1 1 0 0 1 1 1v10"/><path d="M3 21h18"/></svg>
+          </div>
+          <div class="quicklink-card__label">Hotels</div>
+        </a>
+        <a class="quicklink-card" href="/client/modules/operations/visas.html">
+          <div class="quicklink-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="2.2"/></svg>
+          </div>
+          <div class="quicklink-card__label">Visas</div>
+        </a>
+        <a class="quicklink-card" href="/client/sales.html">
+          <div class="quicklink-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12l4-5 4 3 6-7 4 4"/><path d="M17 3h4v4"/></svg>
+          </div>
+          <div class="quicklink-card__label">Sales</div>
+        </a>
+        <a class="quicklink-card" href="/client/modules/accounts/accounts.html">
+          <div class="quicklink-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.2 1.1-2 2.5-2s2.5.8 2.5 2-1.1 1.6-2.5 2-2.5.8-2.5 2 1.1 2 2.5 2 2.5-.8 2.5-2"/></svg>
+          </div>
+          <div class="quicklink-card__label">Accounts</div>
+        </a>
+      </div>
+
+      <div class="owner-section-title">
+        <h2>My Files</h2>
+      </div>
+
+      <div class="owner-drive-card">
+        <div class="owner-drive-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        </div>
+        <div class="owner-drive-card__text">
+          <h3>Personal Archive</h3>
+          <p>Contracts and personal documents, kept separate from employee files</p>
+        </div>
+        <button class="btn btn--primary" id="btn-open-owner-drive" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          Open My Files
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-owner-drive">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        My Files
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-owner-drive" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <button class="btn btn--ghost" id="btn-upload-owner-file" type="button" style="margin-bottom:14px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        Upload File
+      </button>
+      <input type="file" id="owner-file-input" style="display:none;" />
+      <div id="owner-files-list"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/employees.js"></script>
+<script src="/client/modules/accounts/accounts_core.js"></script>
+<script src="/client/modules/accounts/permissions.js"></script>
+<script src="/client/modules/accounts/change_requests.js"></script>
+<script src="/client/modules/accounts/party_core.js"></script>
+<script src="/client/modules/accounts/chart_of_accounts.js"></script>
+<script src="/client/modules/accounts/manager_override.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "owner", title: "Owner Panel" });
+  });
+</script>
+<script src="/client/modules/dashboard/owner.js"></script>
+
+</body>
+</html>
