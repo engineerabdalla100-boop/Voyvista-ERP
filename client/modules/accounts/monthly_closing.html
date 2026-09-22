@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>&#1573;&#1594;&#1604;&#1575;&#1602; &#1575;&#1604;&#1588;&#1607;&#1585; | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+  .closing-picker { display: flex; gap: 14px; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; }
+  .closing-picker .vv-field { display: flex; flex-direction: column; gap: 5px; }
+  .closing-picker .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .closing-picker select, .closing-picker input { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 16px 18px; }
+  .kpi-card__label { font-size: 11px; color: var(--text-soft); margin-bottom: 6px; }
+  .kpi-card__value { font-weight: 800; font-size: 18px; color: var(--text); }
+  .kpi-card__value.is-positive { color: var(--emerald); }
+  .kpi-card__value.is-negative { color: var(--coral); }
+  .kpi-card__delta { font-size: 11px; margin-top: 4px; }
+  .kpi-card__delta.up { color: var(--emerald); }
+  .kpi-card__delta.down { color: var(--coral); }
+
+  .readiness-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 24px; }
+  .readiness-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .readiness-row:last-child { border-bottom: none; }
+  .readiness-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .readiness-badge--ok { background: var(--emerald-soft); color: var(--emerald); }
+  .readiness-badge--blocked { background: #FBE2E2; color: #B02A2A; }
+
+  .btn-export { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; }
+  .btn-export svg { width: 14px; height: 14px; }
+
+  .archive-section { margin-top: 30px; }
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 800px; font-size: 12px; }
+  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: left; font-variant-numeric: tabular-nums; }
+  .ledger tbody tr { cursor: pointer; }
+  .ledger tbody tr:hover { background: var(--canvas); }
+
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .status-badge--locked { background: var(--emerald-soft); color: var(--emerald); }
+  .status-badge--open { background: #FBEAC8; color: #A6700F; }
+
+  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>&#1573;&#1594;&#1604;&#1575;&#1602; &#1575;&#1604;&#1588;&#1607;&#1585; &#1608;&#1575;&#1604;&#1571;&#1585;&#1588;&#1610;&#1601;</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">&#1605;&#1585;&#1575;&#1580;&#1593;&#1577; &#1608;&#1602;&#1601;&#1604; &#1575;&#1604;&#1601;&#1578;&#1585;&#1575;&#1578; &#1575;&#1604;&#1605;&#1575;&#1604;&#1610;&#1577;&#1548; &#1608;&#1571;&#1585;&#1588;&#1610;&#1601; &#1575;&#1604;&#1588;&#1607;&#1608;&#1585; &#1575;&#1604;&#1605;&#1594;&#1604;&#1602;&#1577;</p>
+        </div>
+      </div>
+
+      <div class="closing-picker">
+        <div class="vv-field"><label>&#1575;&#1604;&#1587;&#1606;&#1577;</label><input type="number" id="mc-year" min="2020" max="2100" /></div>
+        <div class="vv-field">
+          <label>&#1575;&#1604;&#1588;&#1607;&#1585;</label>
+          <select id="mc-month">
+            <option value="1">&#1610;&#1606;&#1575;&#1610;&#1585;</option><option value="2">&#1601;&#1576;&#1585;&#1575;&#1610;&#1585;</option><option value="3">&#1605;&#1575;&#1585;&#1587;</option>
+            <option value="4">&#1571;&#1576;&#1585;&#1610;&#1604;</option><option value="5">&#1605;&#1575;&#1610;&#1608;</option><option value="6">&#1610;&#1608;&#1606;&#1610;&#1608;</option>
+            <option value="7">&#1610;&#1608;&#1604;&#1610;&#1608;</option><option value="8">&#1571;&#1594;&#1587;&#1591;&#1587;</option><option value="9">&#1587;&#1576;&#1578;&#1605;&#1576;&#1585;</option>
+            <option value="10">&#1571;&#1603;&#1578;&#1608;&#1576;&#1585;</option><option value="11">&#1606;&#1608;&#1601;&#1605;&#1576;&#1585;</option><option value="12">&#1583;&#1610;&#1587;&#1605;&#1576;&#1585;</option>
+          </select>
+        </div>
+        <button class="btn btn--ghost" id="btn-load-period" type="button">&#1601;&#1578;&#1581; / &#1593;&#1585;&#1590; &#1575;&#1604;&#1601;&#1578;&#1585;&#1577;</button>
+        <button class="btn-export" id="btn-export-closing-pdf" type="button" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/></svg>
+          &#1578;&#1602;&#1585;&#1610;&#1585; &#1573;&#1594;&#1604;&#1575;&#1602; PDF
+        </button>
+      </div>
+
+      <div id="period-panel" style="display:none;">
+        <div class="kpi-grid" id="kpi-grid"></div>
+
+        <div class="readiness-panel" id="readiness-panel"></div>
+
+        <button class="btn btn--primary" id="btn-close-period" type="button" style="display:none;">&#1602;&#1601;&#1604; &#1575;&#1604;&#1588;&#1607;&#1585; &#1606;&#1607;&#1575;&#1574;&#1610;&#1611;&#1575;</button>
+        <span class="status-badge status-badge--locked" id="locked-indicator" style="display:none;">&#1607;&#1584;&#1575; &#1575;&#1604;&#1588;&#1607;&#1585; &#1605;&#1602;&#1601;&#1608;&#1604; &#10003;</span>
+      </div>
+
+      <div class="archive-section">
+        <div class="page-head" style="margin-bottom:14px;">
+          <h2 style="font-size:16px; font-weight:700;">&#1571;&#1585;&#1588;&#1610;&#1601; &#1575;&#1604;&#1588;&#1607;&#1608;&#1585;</h2>
+        </div>
+        <div class="ledger-scroll">
+          <table class="ledger" id="archive-table">
+            <thead><tr><th>&#1575;&#1604;&#1588;&#1607;&#1585;</th><th class="num">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1571;&#1585;&#1576;&#1575;&#1581;</th><th class="num">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1605;&#1589;&#1585;&#1608;&#1601;&#1575;&#1578;</th><th class="num">&#1589;&#1575;&#1601;&#1610; &#1575;&#1604;&#1585;&#1576;&#1581;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th></tr></thead>
+            <tbody id="archive-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="archive-empty" style="display:none;"><p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1601;&#1578;&#1585;&#1575;&#1578; &#1605;&#1601;&#1578;&#1608;&#1581;&#1577; &#1571;&#1608; &#1605;&#1594;&#1604;&#1602;&#1577; &#1576;&#1593;&#1583;.</p></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "acc_closing", title: "&#1573;&#1594;&#1604;&#1575;&#1602; &#1575;&#1604;&#1588;&#1607;&#1585;" });
+  });
+</script>
+<script src="/client/modules/accounts/monthly_closing.js"></script>
+</body>
+</html>

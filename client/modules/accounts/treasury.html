@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>&#1575;&#1604;&#1605;&#1587;&#1578;&#1581;&#1602;&#1575;&#1578; &#1608;&#1575;&#1604;&#1582;&#1586;&#1610;&#1606;&#1577; | Voyvista ERP</title>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 720px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); flex-wrap: wrap; }
+
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+  .vv-field input[type="file"] { padding: 6px; font-size: 11.5px; }
+  .attachment-preview { margin-top: 6px; font-size: 11px; color: var(--text-faint); }
+
+  .vv-tabs { display: flex; gap: 4px; margin-bottom: 22px; background: var(--canvas); padding: 4px; border-radius: var(--radius-md); width: fit-content; flex-wrap: wrap; }
+  .vv-tab { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--text-soft); }
+  .vv-tab.is-active { background: var(--surface); color: var(--gold-deep); box-shadow: var(--shadow-sm); }
+  .tab-view { display: none; }
+  .tab-view.is-active { display: block; }
+
+  .voucher-subtabs { display: flex; gap: 4px; margin-bottom: 18px; background: var(--canvas); padding: 4px; border-radius: var(--radius-md); width: fit-content; }
+  .voucher-subtab { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--text-soft); }
+  .voucher-subtab.is-active { background: var(--surface); color: var(--gold-deep); box-shadow: var(--shadow-sm); }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 16px 18px; }
+  .kpi-card__label { font-size: 11px; color: var(--text-soft); margin-bottom: 6px; }
+  .kpi-card__value { font-weight: 800; font-size: 17px; color: var(--text); }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 1000px; font-size: 12px; }
+  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: left; font-variant-numeric: tabular-nums; }
+  .amount-in { color: var(--emerald); font-weight: 700; }
+  .amount-out { color: var(--coral); font-weight: 700; }
+
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .status-badge--draft { background: #EEF0F4; color: #5C6B82; }
+  .status-badge--submitted { background: #FBEAC8; color: #A6700F; }
+  .status-badge--approved { background: #E7EEFD; color: #3068E0; }
+  .status-badge--posted { background: var(--emerald-soft); color: var(--emerald); }
+  .status-badge--refund { background: #FDEBD3; color: #B5651D; }
+  .row-refund { background: rgba(253, 235, 211, 0.25); }
+  .status-badge--unpaid { background: #FBE2E2; color: #B02A2A; }
+  .status-badge--partial { background: #FBEAC8; color: #A6700F; }
+  .status-badge--paid { background: var(--emerald-soft); color: var(--emerald); }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 260px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+  .filter-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); }
+
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .btn-workflow-next { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-deep); cursor: pointer; margin-inline-end: 4px; }
+  .btn-confirm-post { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--emerald); background: var(--emerald-soft); color: var(--emerald); cursor: pointer; margin-inline-end: 4px; }
+  .btn-export { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; }
+  .btn-export svg { width: 14px; height: 14px; }
+
+  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
+
+  .vault-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .vault-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 18px 20px; }
+  .vault-card__name { font-weight: 700; font-size: 13.5px; color: var(--text); margin-bottom: 8px; }
+  .vault-card__balance { font-weight: 800; font-size: 20px; color: var(--gold-deep); }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>&#1575;&#1604;&#1605;&#1587;&#1578;&#1581;&#1602;&#1575;&#1578; &#1608;&#1575;&#1604;&#1583;&#1610;&#1608;&#1606; &#1608;&#1575;&#1604;&#1582;&#1586;&#1610;&#1606;&#1577;</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">&#1587;&#1606;&#1583;&#1575;&#1578; &#1575;&#1604;&#1602;&#1576;&#1590; &#1608;&#1575;&#1604;&#1589;&#1585;&#1601;&#8214; &#1608;&#1605;&#1578;&#1575;&#1576;&#1593;&#1577; &#1575;&#1604;&#1593;&#1605;&#1604;&#1575;&#1569; &#1608;&#1575;&#1604;&#1605;&#1608;&#1585;&#1583;&#1610;&#1606;&#8214; &#1608;&#1575;&#1604;&#1582;&#1586;&#1575;&#1574;&#1606;</p>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <div class="vv-tabs">
+        <div class="vv-tab is-active" data-tab="vouchers">&#1575;&#1604;&#1587;&#1606;&#1583;&#1575;&#1578;</div>
+        <div class="vv-tab" data-tab="suppliers">&#1604;&#1608;&#1581;&#1577; &#1575;&#1604;&#1605;&#1608;&#1585;&#1583;&#1610;&#1606; (AP)</div>
+        <div class="vv-tab" data-tab="vaults">&#1575;&#1604;&#1582;&#1586;&#1575;&#1574;&#1606; &#1608;&#1575;&#1604;&#1576;&#1606;&#1608;&#1603;</div>
+      </div>
+
+      <!-- ============================= VOUCHERS ============================= -->
+      <div class="tab-view is-active" id="tab-vouchers">
+        <div class="voucher-subtabs">
+          <div class="voucher-subtab is-active" data-voucher-type="receipt">&#1587;&#1606;&#1583;&#1575;&#1578; &#1575;&#1604;&#1602;&#1576;&#1590;</div>
+          <div class="voucher-subtab" data-voucher-type="payment">&#1587;&#1606;&#1583;&#1575;&#1578; &#1575;&#1604;&#1589;&#1585;&#1601;</div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-filters">
+            <div class="ledger-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="voucher-search" placeholder="&#1576;&#1581;&#1579; &#1576;&#1575;&#1587;&#1605; &#1575;&#1604;&#1593;&#1605;&#1610;&#1604; &#1571;&#1608; &#1575;&#1604;&#1605;&#1608;&#1585;&#1583;..." />
+            </div>
+            <input type="date" id="voucher-filter-date" class="filter-select" />
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-export" id="btn-export-vouchers" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+              &#1578;&#1589;&#1583;&#1610;&#1585; Excel/CSV
+            </button>
+            <button class="btn btn--primary" id="btn-open-add-voucher" type="button">+ &#1587;&#1606;&#1583; &#1580;&#1583;&#1610;&#1583;</button>
+          </div>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="vouchers-table">
+            <thead>
+              <tr><th>&#1575;&#1604;&#1585;&#1602;&#1605;</th><th>&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</th><th>&#1575;&#1604;&#1581;&#1587;&#1575;&#1576;</th><th class="num">&#1575;&#1604;&#1605;&#1576;&#1604;&#1594;</th><th>&#1591;&#1585;&#1610;&#1602;&#1577; &#1575;&#1604;&#1583;&#1601;&#1593;</th><th>&#1575;&#1604;&#1605;&#1585;&#1580;&#1593;</th><th>&#1575;&#1604;&#1576;&#1610;&#1575;&#1606;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th><th>&#1575;&#1604;&#1573;&#1580;&#1585;&#1575;&#1569;&#1575;&#1578;</th></tr>
+            </thead>
+            <tbody id="vouchers-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="vouchers-empty" style="display:none;"><p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1587;&#1606;&#1583;&#1575;&#1578; &#1576;&#1593;&#1583;.</p></div>
+      </div>
+
+      <!-- ============================= SUPPLIERS (AP) ============================= -->
+      <div class="tab-view" id="tab-suppliers">
+        <div class="toolbar">
+          <div class="ledger-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="supplier-search" placeholder="&#1576;&#1581;&#1579; &#1576;&#1575;&#1587;&#1605; &#1575;&#1604;&#1605;&#1608;&#1585;&#1583;..." />
+          </div>
+          <button class="btn-export" id="btn-export-suppliers" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+            &#1578;&#1589;&#1583;&#1610;&#1585; Excel/CSV
+          </button>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="suppliers-table">
+            <thead>
+              <tr><th>&#1575;&#1587;&#1605; &#1575;&#1604;&#1605;&#1608;&#1585;&#1583;</th><th class="num">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1605;&#1587;&#1578;&#1581;&#1602;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th><th>&#1573;&#1580;&#1585;&#1575;&#1569;</th></tr>
+            </thead>
+            <tbody id="suppliers-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="suppliers-empty" style="display:none;"><p>&#1604;&#1575; &#1610;&#1608;&#1580;&#1583; &#1605;&#1608;&#1585;&#1583;&#1608;&#1606; &#1584;&#1608;&#1608; &#1575;&#1604;&#1578;&#1586;&#1575;&#1605;&#1575;&#1578; &#1605;&#1575;&#1604;&#1610;&#1577; &#1576;&#1593;&#1583;.</p></div>
+      </div>
+
+      <!-- ============================= VAULTS & BANKS ============================= -->
+      <div class="tab-view" id="tab-vaults">
+        <div class="vault-grid" id="vault-grid"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ADD VOUCHER MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-add-voucher">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title" id="voucher-modal-title">&#1587;&#1606;&#1583; &#1602;&#1576;&#1590; &#1580;&#1583;&#1610;&#1583;</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-voucher" aria-label="&#1573;&#1594;&#1604;&#1575;&#1602;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</label><input type="date" id="v-date" /></div>
+        <div class="vv-field"><label>&#1575;&#1604;&#1593;&#1605;&#1610;&#1604; / &#1575;&#1604;&#1605;&#1608;&#1585;&#1583;</label><select id="v-party"></select></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1575;&#1604;&#1605;&#1576;&#1604;&#1594;</label><input type="number" min="0" step="0.01" id="v-amount" value="0" /></div>
+        <div class="vv-field"><label>&#1575;&#1604;&#1593;&#1605;&#1604;&#1577;</label>
+          <select id="v-currency">
+            <option value="EGP">&#1580;&#1606;&#1610;&#1607; &#1605;&#1589;&#1585;&#1610; (EGP)</option>
+            <option value="USD">&#1583;&#1608;&#1604;&#1575;&#1585; &#1571;&#1605;&#1585;&#1610;&#1603;&#1610; (USD)</option>
+            <option value="SAR">&#1585;&#1610;&#1575;&#1604; &#1587;&#1593;&#1608;&#1583;&#1610; (SAR)</option>
+          </select>
+        </div>
+        <div class="vv-field"><label>&#1587;&#1593;&#1585; &#1575;&#1604;&#1589;&#1585;&#1601;</label><input type="number" min="0" step="0.0001" id="v-exchange-rate" value="1" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1591;&#1585;&#1610;&#1602;&#1577; &#1575;&#1604;&#1583;&#1601;&#1593;/&#1575;&#1604;&#1578;&#1581;&#1589;&#1610;&#1604;</label>
+          <select id="v-payment-method">
+            <option value="cash">&#1606;&#1602;&#1583;&#1610;</option>
+            <option value="instapay">InstaPay</option>
+            <option value="bank_transfer">&#1578;&#1581;&#1608;&#1610;&#1604; &#1576;&#1606;&#1603;&#1610;</option>
+            <option value="cheque">&#1588;&#1610;&#1603;</option>
+            <option value="card">&#1603;&#1575;&#1585;&#1578;</option>
+          </select>
+        </div>
+        <div class="vv-field"><label>&#1581;&#1587;&#1575;&#1576; &#1575;&#1604;&#1582;&#1586;&#1610;&#1606;&#1577;/&#1575;&#1604;&#1576;&#1606;&#1603;</label><select id="v-treasury-account"></select></div>
+      </div>
+      <div class="vv-field"><label>&#1575;&#1604;&#1581;&#1587;&#1575;&#1576; &#1575;&#1604;&#1585;&#1602;&#1575;&#1576;&#1610; (&#1584;&#1605;&#1605; &#1593;&#1605;&#1604;&#1575;&#1569;/&#1605;&#1608;&#1585;&#1583;&#1610;&#1606;)</label><select id="v-control-account"></select></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1585;&#1602;&#1605; &#1575;&#1604;&#1605;&#1604;&#1601;/&#1575;&#1604;&#1581;&#1580;&#1586;</label><input type="text" id="v-booking-ref" placeholder="&#1575;&#1582;&#1578;&#1610;&#1575;&#1585;&#1610;" /></div>
+        <div class="vv-field"><label>&#1585;&#1602;&#1605; &#1575;&#1604;&#1593;&#1605;&#1604;&#1610;&#1577;/&#1575;&#1604;&#1605;&#1585;&#1580;&#1593;</label><input type="text" id="v-transaction-ref" placeholder="&#1575;&#1582;&#1578;&#1610;&#1575;&#1585;&#1610;" /></div>
+      </div>
+      <div class="vv-field"><label>&#1575;&#1604;&#1576;&#1610;&#1575;&#1606;</label><input type="text" id="v-description" placeholder="&#1608;&#1589;&#1601; &#1575;&#1604;&#1587;&#1606;&#1583;..." /></div>
+      <div class="vv-field">
+        <label>&#1605;&#1585;&#1601;&#1602; (&#1573;&#1610;&#1589;&#1575;&#1604; &#1575;&#1604;&#1583;&#1601;&#1593;)</label>
+        <input type="file" id="v-attachment" accept="image/*,application/pdf" />
+        <div class="attachment-preview" id="v-attachment-preview"></div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-voucher" type="button">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+      <button class="btn btn--ghost" id="btn-save-voucher-draft" type="button">&#1581;&#1601;&#1592; &#1603;&#1605;&#1587;&#1608;&#1583;&#1577;</button>
+      <button class="btn btn--primary" id="btn-confirm-post-voucher" type="button">&#1578;&#1571;&#1603;&#1610;&#1583; &#1608;&#1575;&#1593;&#1578;&#1605;&#1575;&#1583; &#1601;&#1608;&#1585;&#1611;&#1575;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= PAY SUPPLIER MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-pay-supplier">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">&#1587;&#1583;&#1575;&#1583; &#1604;&#1604;&#1605;&#1608;&#1585;&#1583;</div>
+      <button class="vv-modal__close" data-close-modal="modal-pay-supplier" aria-label="&#1573;&#1594;&#1604;&#1575;&#1602;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>&#1575;&#1604;&#1605;&#1608;&#1585;&#1583;</label><input type="text" id="ps-party-name" readonly /></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1575;&#1604;&#1605;&#1576;&#1604;&#1594; &#1575;&#1604;&#1605;&#1587;&#1578;&#1581;&#1602;</label><input type="number" min="0" step="0.01" id="ps-amount" value="0" /></div>
+        <div class="vv-field"><label>&#1581;&#1587;&#1575;&#1576; &#1575;&#1604;&#1582;&#1586;&#1610;&#1606;&#1577;</label><select id="ps-treasury-account"></select></div>
+      </div>
+      <div class="vv-field"><label>&#1575;&#1604;&#1581;&#1587;&#1575;&#1576; &#1575;&#1604;&#1585;&#1602;&#1575;&#1576;&#1610; (&#1584;&#1605;&#1605; &#1605;&#1608;&#1585;&#1583;&#1610;&#1606;)</label><select id="ps-control-account"></select></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-pay-supplier" type="button">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+      <button class="btn btn--primary" id="btn-confirm-pay-supplier" type="button">&#1578;&#1571;&#1603;&#1610;&#1583; &#1575;&#1604;&#1587;&#1583;&#1575;&#1583;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "acc_treasury", title: "Treasury" });
+  });
+</script>
+<script src="/client/modules/accounts/treasury.js"></script>
+</body>
+</html>

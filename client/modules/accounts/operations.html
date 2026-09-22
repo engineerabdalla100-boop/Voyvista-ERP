@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>عمليات الحجوزات | Voyvista ERP</title>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 560px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal--wide { max-width: 640px; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field select, .vv-field input, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .summary-note { background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12.5px; margin-bottom: 16px; }
+  .summary-line { display: flex; justify-content: space-between; padding: 4px 0; }
+  .summary-line.total { font-weight: 800; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px; }
+  .summary-line.positive { color: var(--emerald); }
+  .summary-line.negative { color: var(--coral); }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin: 34px 0 16px; }
+  .section-title h2 { font-weight: 700; font-size: 16px; color: var(--text); }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 950px; font-size: 12px; }
+  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: left; font-variant-numeric: tabular-nums; }
+  .profit-positive { color: var(--emerald); font-weight: 700; }
+  .profit-negative { color: var(--coral); font-weight: 700; }
+
+  .dept-tag { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .dept-tag--flight { background: #E7EEFD; color: #3068E0; }
+  .dept-tag--hotel { background: #F5EBD3; color: #C79A3B; }
+  .dept-tag--visa { background: #E3F5EC; color: #1F9D6E; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 280px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+
+  .btn-approve { font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--emerald); background: var(--emerald-soft); color: var(--emerald); cursor: pointer; }
+  .btn-cancel-op { font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--coral); background: #FBE2E2; color: #B02A2A; cursor: pointer; }
+
+  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>عمليات الحجوزات المحاسبية</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">مراجعة واعتماد الحجوزات المؤكدة (طيران، فنادق، تأشيرات) لتوليد الاستحقاقات آليًا</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="ops-search" placeholder="بحث بالعميل أو المورد..." />
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="ledger" id="ops-table">
+          <thead>
+            <tr><th>القسم</th><th>التاريخ</th><th>العميل</th><th>المورد</th><th class="num">سعر التكلفة</th><th class="num">سعر البيع</th><th class="num">الهامش</th><th>الإجراء</th></tr>
+          </thead>
+          <tbody id="ops-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="ops-empty" style="display:none;"><p>لا توجد حجوزات بانتظار الاعتماد المحاسبي.</p></div>
+
+      <!-- ============================= APPROVED / LOCKED BOOKINGS ============================= -->
+      <div class="section-title">
+        <h2>الحجوزات المعتمدة محاسبيًا</h2>
+      </div>
+
+      <div class="toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="locked-search" placeholder="بحث بالعميل أو المورد..." />
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="ledger" id="locked-table">
+          <thead>
+            <tr><th>القسم</th><th>التاريخ</th><th>العميل</th><th>المورد</th><th class="num">سعر البيع</th><th class="num">المحصّل</th><th>الإجراء</th></tr>
+          </thead>
+          <tbody id="locked-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="locked-empty" style="display:none;"><p>لا توجد حجوزات معتمدة بعد.</p></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================= APPROVE MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-approve">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">اعتماد وقفل العملية</div>
+      <button class="vv-modal__close" data-close-modal="modal-approve" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="summary-note" id="approve-summary"></div>
+      <div class="vv-field"><label>حساب ذمم العملاء (AR)</label><select id="ap-ar-account"></select></div>
+      <div class="vv-field"><label>حساب إيرادات المبيعات</label><select id="ap-revenue-account"></select></div>
+      <div class="vv-field"><label>حساب تكلفة الخدمات المباعة (COGS)</label><select id="ap-cogs-account"></select></div>
+      <div class="vv-field"><label>حساب ذمم الموردين (AP)</label><select id="ap-ap-account"></select></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-approve" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-confirm-approve" type="button">اعتماد وقفل نهائي</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= CANCELLATION & REFUND MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-cancel">
+  <div class="vv-modal vv-modal--wide">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">إلغاء الحجز واسترجاع الأموال</div>
+      <button class="vv-modal__close" data-close-modal="modal-cancel" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <!-- Booking Snapshot -->
+      <div class="summary-note" id="cancel-booking-snapshot"></div>
+
+      <!-- Penalties Inputs -->
+      <div class="vv-field-row">
+        <div class="vv-field">
+          <label>غرامة المورد (اختياري)</label>
+          <input type="number" min="0" step="0.01" id="cancel-supplier-penalty" value="0" />
+        </div>
+        <div class="vv-field">
+          <label>حساب مصروف غرامة المورد</label>
+          <select id="cancel-supplier-penalty-account"><option value="">-- بدون --</option></select>
+        </div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field">
+          <label>غرامة العميل (اختياري)</label>
+          <input type="number" min="0" step="0.01" id="cancel-client-penalty" value="0" />
+        </div>
+        <div class="vv-field">
+          <label>حساب إيراد غرامة العميل</label>
+          <select id="cancel-client-penalty-account"><option value="">-- بدون --</option></select>
+        </div>
+      </div>
+      <div class="vv-field">
+        <label>سبب الإلغاء</label>
+        <input type="text" id="cancel-reason" placeholder="اختياري..." />
+      </div>
+
+      <!-- Live Summary -->
+      <div class="summary-note" id="cancel-live-summary"></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-cancel" type="button">إغلاق</button>
+      <button class="btn btn--primary" id="btn-confirm-cancel" type="button">تأكيد الإلغاء وعكس القيد</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "acc_operations", title: "عمليات الحجوزات" });
+  });
+</script>
+<script src="/client/modules/accounts/operations.js"></script>
+</body>
+</html>

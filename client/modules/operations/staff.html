@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Staff | Voyvista ERP</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
 <script src="/client/assets/js/auth.js"></script>
 <script src="/client/assets/js/components.js"></script>
 <script src="/client/assets/js/router.js"></script>
@@ -29,7 +29,7 @@
   .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
   .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
 
-  .photo-upload-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 18px; }
+  .photo-upload-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 18px;}
   .photo-upload-box { border: 1.5px dashed var(--border); border-radius: var(--radius-md); padding: 12px; text-align: center; background: var(--canvas); position: relative; }
   .photo-upload-box label.upload-label { font-size: 11.5px; font-weight: 700; color: var(--text-soft); display: block; margin-bottom: 8px; }
   .photo-upload-box img { max-width: 100%; max-height: 110px; border-radius: 6px; display: block; margin: 0 auto 8px; object-fit: cover; }
@@ -76,19 +76,18 @@
       <div class="page-head">
         <div>
           <h1>Staff</h1>
-          <p>سجل بيانات الموظفين — التوظيف، المستندات، وحالة العقد</p>
+          <p>Employee registry - hiring, documents, and contract status</p>
         </div>
       </div>
 
       <div class="staff-toolbar">
         <div class="ledger-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="staff-search" placeholder="بحث بالاسم أو الوظيفة..." />
+          <input type="text" id="staff-search" placeholder="Search by name or position..." />
         </div>
         <div class="staff-actions">
-          <button type="button" class="btn btn--ghost" id="btn-export-staff-excel">📊 Excel/CSV</button>
-          <button type="button" class="btn btn--ghost" id="btn-export-staff-pdf">📄 PDF</button>
-          <button type="button" class="btn btn--primary" id="btn-open-add-staff">+ إضافة موظف</button>
+          <button type="button" class="btn btn--ghost" id="btn-export-staff-csv">Export CSV</button>
+          <button type="button" class="btn btn--primary" id="btn-open-add-staff">+ Add Staff Member</button>
         </div>
       </div>
 
@@ -97,34 +96,33 @@
           <thead>
             <tr>
               <th></th>
-              <th>الاسم</th>
-              <th>الوظيفة</th>
-              <th>الهاتف</th>
-              <th>البريد الإلكتروني</th>
-              <th>تاريخ البداية</th>
-              <th>تاريخ النهاية</th>
-              <th>الحالة</th>
-              <th>الإجراءات</th>
+              <th>Name</th>
+              <th>Position</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Start Date</th>
+              <th>End Date</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="staff-table-body"></tbody>
         </table>
       </div>
-      <div class="empty-state" id="staff-empty-state" style="display:none;"><p>لا يوجد موظفون مسجّلون بعد</p></div>
+      <div class="empty-state" id="staff-empty-state" style="display:none;"><p>No staff members registered yet</p></div>
 
     </div>
   </div>
 </div>
 
-<!-- ================= Add/Edit Staff Modal ================= -->
 <div class="vv-modal-overlay" id="modal-staff-form">
   <div class="vv-modal" style="max-width:720px;">
     <div class="vv-modal__header">
       <div class="vv-modal__title">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/></svg>
-        <span id="staff-modal-title">إضافة موظف جديد</span>
+        <span id="staff-modal-title">Add New Staff Member</span>
       </div>
-      <button class="vv-modal__close" data-close-modal="modal-staff-form" aria-label="إغلاق">
+      <button class="vv-modal__close" data-close-modal="modal-staff-form" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
@@ -132,68 +130,67 @@
       <input type="hidden" id="staff-editing-id" value="" />
 
       <div class="vv-field-row">
-        <div class="vv-field"><label>الاسم الكامل *</label><input type="text" id="staff-name" placeholder="اسم الموظف..." /></div>
-        <div class="vv-field"><label>الوظيفة (Position) *</label><input type="text" id="staff-position" placeholder="مثال: محاسب، مندوب مبيعات..." /></div>
+        <div class="vv-field"><label>Full Name *</label><input type="text" id="staff-name" placeholder="Employee name..." /></div>
+        <div class="vv-field"><label>Position *</label><input type="text" id="staff-position" placeholder="e.g. Accountant, Sales Rep..." /></div>
       </div>
       <div class="vv-field-row">
-        <div class="vv-field"><label>رقم الهاتف *</label><input type="text" id="staff-phone" placeholder="01xxxxxxxxx" /></div>
-        <div class="vv-field"><label>البريد الإلكتروني</label><input type="email" id="staff-email" placeholder="name@example.com" /></div>
+        <div class="vv-field"><label>Phone Number *</label><input type="text" id="staff-phone" placeholder="01xxxxxxxxx" /></div>
+        <div class="vv-field"><label>Email</label><input type="email" id="staff-email" placeholder="name@example.com" /></div>
       </div>
       <div class="vv-field-row">
-        <div class="vv-field"><label>تاريخ بدء العمل *</label><input type="date" id="staff-start-date" /></div>
+        <div class="vv-field"><label>Start Date *</label><input type="date" id="staff-start-date" /></div>
         <div class="vv-field">
-          <label>تاريخ انتهاء العقد (اتركه فارغًا لو لسه مستمر)</label>
+          <label>Contract End Date (leave empty if still active)</label>
           <input type="date" id="staff-end-date" />
         </div>
       </div>
       <div class="vv-field">
-        <label>ملاحظات (اختياري)</label>
-        <textarea id="staff-notes" rows="2" placeholder="أي ملاحظات إضافية..."></textarea>
+        <label>Notes (optional)</label>
+        <textarea id="staff-notes" rows="2" placeholder="Any additional notes..."></textarea>
       </div>
 
       <div class="photo-upload-grid">
         <div class="photo-upload-box">
-          <label class="upload-label">صورة البروفايل الشخصية</label>
+          <label class="upload-label">Profile Photo</label>
           <img id="preview-profile-photo" style="display:none;" />
           <input type="file" accept="image/*" id="upload-profile-photo" />
-          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+          <div class="upload-hint">Max 700KB per image</div>
         </div>
         <div class="photo-upload-box">
-          <label class="upload-label">البطاقة الشخصية — وش</label>
+          <label class="upload-label">ID Card - Front</label>
           <img id="preview-id-front" style="display:none;" />
           <input type="file" accept="image/*" id="upload-id-front" />
-          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+          <div class="upload-hint">Max 700KB per image</div>
         </div>
         <div class="photo-upload-box">
-          <label class="upload-label">البطاقة الشخصية — ضهر</label>
+          <label class="upload-label">ID Card - Back</label>
           <img id="preview-id-back" style="display:none;" />
           <input type="file" accept="image/*" id="upload-id-back" />
-          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+          <div class="upload-hint">Max 700KB per image</div>
         </div>
         <div class="photo-upload-box">
-          <label class="upload-label">صورة الفيش الجنائي</label>
+          <label class="upload-label">Criminal Record Certificate</label>
           <img id="preview-criminal-record" style="display:none;" />
           <input type="file" accept="image/*" id="upload-criminal-record" />
-          <div class="upload-hint">حد أقصى 700 كيلوبايت للصورة</div>
+          <div class="upload-hint">Max 700KB per image</div>
         </div>
       </div>
     </div>
     <div class="vv-modal__footer">
-      <button class="btn btn--ghost" data-close-modal="modal-staff-form" type="button">إلغاء</button>
-      <button class="btn btn--primary" id="btn-save-staff" type="button">حفظ</button>
+      <button class="btn btn--ghost" data-close-modal="modal-staff-form" type="button">Cancel</button>
+      <button class="btn btn--primary" id="btn-save-staff" type="button">Save</button>
     </div>
   </div>
 </div>
 
-<!-- ================= View Staff Details Modal ================= -->
 <div class="vv-modal-overlay" id="modal-staff-view">
   <div class="vv-modal" style="max-width:560px;">
     <div class="vv-modal__header">
       <div class="vv-modal__title">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/></svg>
-        <span id="staff-view-title">بيانات الموظف</span>
+        <span id="staff-view-title">Staff Details</span>
       </div>
-      <button class="vv-modal__close" data-close-modal="modal-staff-view" aria-label="إغلاق">
+      <button class="vv-modal__close" data-close-modal="modal-staff-view" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
@@ -201,11 +198,13 @@
   </div>
 </div>
 
-<script src="/client/modules/operations/staff.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    VVComponents.mount({ page: "staff", title: "Staff" });
+    if (typeof VVComponents !== "undefined") {
+      VVComponents.mount({ page: "staff", title: "Staff" });
+    }
   });
 </script>
+<script src="/client/modules/operations/staff.js"></script>
 </body>
 </html>

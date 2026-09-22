@@ -112,15 +112,14 @@
       <div class="page-head">
         <div>
           <h1>الإعدادات (Settings)</h1>
-          <p>تخصيص الواجهة وتفضيلات الحساب المحلية</p>
+          <p>تخصيص الواجهة وتفضيلات الحساب</p>
         </div>
       </div>
 
       <div class="settings-container">
 
-        <!-- قسم لوجو الشركة -->
         <div class="settings-card">
-          <h3>🏢 لوجو الشركة</h3>
+          <h3>لوجو الشركة</h3>
           <p class="settings-card__note">اللوجو ده بيظهر في القائمة الجانبية لكل المستخدمين، وفي مستندات الـPDF (A4) اللي بيصدّرها النظام.</p>
           <div class="logo-upload-row">
             <div class="logo-preview-box" id="logo-preview-box">
@@ -128,21 +127,19 @@
             </div>
             <div style="flex:1;">
               <input type="file" accept="image/*" id="setting-logo-upload" />
-              <div style="font-size:10.5px; color:var(--text-faint); margin-top:6px;">صورة بحد أقصى 500 كيلوبايت. يُفضّل خلفية شفافة (PNG).</div>
+              <div style="font-size:10.5px; color:var(--text-faint); margin-top:6px;">صورة بحد أقصى 500 كيلوبايت.</div>
             </div>
             <button type="button" class="btn btn--ghost" id="btn-remove-logo" style="white-space:nowrap;">إزالة اللوجو</button>
           </div>
         </div>
 
-        <!-- قسم المظهر والواجهة -->
         <div class="settings-card">
-          <h3>🎨 المظهر والتفضيلات</h3>
-          <p class="settings-card__note">⚠️ الوضع الداكن واتجاه الواجهة بيتحفظوا هنا كتفضيل، لكن التفعيل الكامل على كل صفحات النظام محتاج تصميم مخصص لسه ما اتعملش — هيبان تنبيه واضح لو حاولت تفعّلهم دلوقتي.</p>
+          <h3>المظهر والتفضيلات</h3>
 
           <div class="setting-row">
             <div class="setting-info">
               <label>الوضع الداكن (Dark Mode)</label>
-              <p>تفعيل الألوان الداكنة لمريحة العين أثناء العمل</p>
+              <p>تفعيل الألوان الداكنة لراحة العين أثناء العمل</p>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" id="setting-dark-mode">
@@ -162,9 +159,8 @@
           </div>
         </div>
 
-        <!-- قسم البيانات الشخصية والجلسة -->
         <div class="settings-card">
-          <h3>👤 بيانات الحساب المحلي</h3>
+          <h3>بيانات الحساب</h3>
 
           <div class="vv-field" style="margin-bottom:12px;">
             <label style="font-size:12.5px; font-weight:600; display:block; margin-bottom:6px;">اسم الموظف الظاهر</label>
@@ -183,6 +179,7 @@
 </div>
 
 <script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
 <script src="/client/assets/js/auth.js"></script>
 <script src="/client/assets/js/components.js"></script>
 <script src="/client/assets/js/router.js"></script>

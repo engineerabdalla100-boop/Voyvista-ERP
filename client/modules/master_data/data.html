@@ -1,90 +1,19 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>قسم البيانات | Voyvista ERP</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" />
+<title>Data | Voyvista ERP</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-
-<!-- ============================================================
-     Shared app assets only — this page is intentionally fully
-     decoupled from /client/modules/accounts/ (that module is done
-     and is not touched or referenced from here in any way).
-     ============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
 <script src="/client/assets/js/auth.js"></script>
 <script src="/client/assets/js/components.js"></script>
 <script src="/client/assets/js/router.js"></script>
-
 <link rel="stylesheet" href="/client/assets/css/style.css" />
 <style>
-  /* ================= Payment status modal ================= */
-  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
-  .vv-modal-overlay.is-open { display: flex; }
-  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 620px; box-shadow: var(--shadow-lg); overflow: hidden; animation: vvModalIn 0.18s ease; }
-  @keyframes vvModalIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 9px; }
-  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
-  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-  .vv-modal__close svg { width: 14px; height: 14px; }
-  .vv-modal__body { padding: 20px; }
-  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
-  .vv-field { display: flex; flex-direction: column; gap: 5px; }
-  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
-  .vv-field input, .vv-field select { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
-
-  .payment-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .payment-switch__option { border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 12px 6px; text-align: center; cursor: pointer; background: var(--canvas); font-size: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .payment-switch__option span { font-size: 10.5px; font-weight: 700; color: var(--text-soft); }
-  .payment-switch__option.is-selected { border-color: var(--gold-deep); background: var(--gold-soft); }
-  .payment-switch__option.is-selected span { color: var(--gold-deep); }
-
-  .remaining-amount { color: #B02A2A; font-weight: 800; }
-
-  /* ================= Arrears / متأخرات section ================= */
-  .arrears-panel { background: var(--surface); border: 1px solid #F2C4C4; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 24px; }
-  .arrears-panel__header { background: #FBE2E2; padding: 12px 16px; font-family: var(--font-display); font-weight: 800; font-size: 13.5px; color: #B02A2A; }
-  .arrears-totals-line { font-size: 11.5px; font-weight: 700; color: #B02A2A; padding: 8px 16px; border-bottom: 1px solid #F2C4C4; display: flex; gap: 16px; flex-wrap: wrap; }
-
-  /* ================= Foreign Currency Wallet ================= */
-  .wallet-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 24px; }
-  .wallet-panel__header { background: var(--ink); color: #fff; padding: 12px 16px; font-family: var(--font-display); font-weight: 800; font-size: 13.5px; display: flex; align-items: center; gap: 10px; }
-  .wallet-panel__hint { font-size: 10.5px; font-weight: 500; color: var(--text-on-ink-soft, #9CA3AF); }
-  .wallet-currency-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; padding: 16px; }
-  .wallet-currency-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; text-align: center; background: var(--canvas); }
-  .wallet-currency-card__label { font-size: 11px; color: var(--text-faint); margin-bottom: 6px; }
-  .wallet-currency-card__balance { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--gold-deep); margin-bottom: 10px; }
-  .wallet-pay-btn { font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: var(--radius-sm); border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-deep); cursor: pointer; }
-  .wallet-history-btn { font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; }
-
-  /* ================= DNA Drawer tabs ================= */
-  .dna-tab { padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; color: var(--text-soft); background: var(--canvas); border: 1px solid var(--border); cursor: pointer; }
-  .dna-tab.is-active { background: var(--gold-deep); color: #fff; border-color: var(--gold-deep); }
-
-  .doc-vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
-  .doc-vault-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; text-align: center; position: relative; }
-  .doc-vault-card img { max-width: 100%; max-height: 100px; border-radius: 6px; margin-bottom: 8px; object-fit: cover; }
-  .doc-vault-card__label { font-size: 11.5px; font-weight: 700; margin-bottom: 4px; }
-  .doc-vault-card__expiry { font-size: 10.5px; padding: 2px 8px; border-radius: 20px; display: inline-block; }
-  .doc-vault-card__expiry--ok { background: var(--emerald-soft); color: var(--emerald); }
-  .doc-vault-card__expiry--warning { background: #FFF3D6; color: #B8860B; }
-  .doc-vault-card__expiry--danger { background: #FBE2E2; color: #B02A2A; }
-  .doc-vault-card__remove { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 6px; background: #FBE2E2; color: #B02A2A; border: none; cursor: pointer; font-size: 11px; }
-
-  .crm-log-entry { border-bottom: 1px solid var(--border); padding: 10px 0; font-size: 12.5px; }
-  .crm-log-entry:last-child { border-bottom: none; }
-  .crm-log-entry__meta { font-size: 10.5px; color: var(--text-faint); margin-top: 3px; }
-
-  body { font-family: 'Cairo', var(--font-body); }
-
-  .page-header { margin-bottom: 24px; }
-  .page-header h1 { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 22px; }
-  .page-header p { font-size: 13px; color: var(--text-soft); margin-top: 5px; }
-
-  /* ================= Dashboard: 3 package cards ================= */
-  .package-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 900px; }
+  .package-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 900px; margin: 40px auto 0; }
   .package-card {
     background: var(--surface); border: none; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
     padding: 30px 26px; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; text-align: left;
@@ -94,54 +23,60 @@
   .package-card::after { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 3px; background: var(--pkg-accent, var(--gold)); }
   .package-card__icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--pkg-accent-soft, var(--gold-soft)); color: var(--pkg-accent, var(--gold-deep)); }
   .package-card__icon svg { width: 25px; height: 25px; }
-  .package-card__title { font-family: 'Cairo', sans-serif; font-size: 17px; font-weight: 800; color: var(--text); }
+  .package-card__title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--text); }
   .package-card__desc { font-size: 12.5px; color: var(--text-soft); line-height: 1.7; }
   .package-card--b2b { --pkg-accent: #3068E0; --pkg-accent-soft: #E7EEFD; }
   .package-card--b2c { --pkg-accent: #1F9D6E; --pkg-accent-soft: #DCFCE7; }
   .package-card--accounting { --pkg-accent: #C79A3B; --pkg-accent-soft: #F5EBD3; }
 
-  /* ================= Full-width module view ================= */
   .module-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-  .module-toolbar__title { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 18px; color: var(--text); }
-  .module-back-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer; font-family: 'Cairo', sans-serif; }
+  .module-toolbar__title { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--text); }
+  .module-back-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer; }
   .module-back-btn:hover { border-color: var(--gold); }
   .module-back-btn svg { width: 15px; height: 15px; }
 
-  .vv-tabs { display: flex; gap: 4px; background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; width: fit-content; margin-bottom: 16px; }
-  .vv-tab { padding: 7px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--text-soft); cursor: pointer; }
-  .vv-tab.is-active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 640px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+  .vv-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+  .vv-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .payment-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .payment-switch__option { border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 12px 6px; text-align: center; cursor: pointer; background: var(--canvas); font-size: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .payment-switch__option span { font-size: 10.5px; font-weight: 700; color: var(--text-soft); }
+  .payment-switch__option.is-selected { border-color: var(--gold-deep); background: var(--gold-soft); }
+  .payment-switch__option.is-selected span { color: var(--gold-deep); }
+  .remaining-amount { color: #B02A2A; font-weight: 800; }
 
   .table-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; margin-bottom: 14px; }
-  .search-wrap { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; }
+  .search-wrap { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 280px; }
   .search-wrap svg { width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0; }
-  .search-wrap input { border: none; outline: none; width: 100%; background: transparent; font-size: 12.5px; font-family: 'Cairo', sans-serif; }
+  .search-wrap input { border: none; outline: none; width: 100%; background: transparent; font-size: 12.5px; }
   .filter-chip { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-soft); cursor: pointer; background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; }
 
   .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
   table.acc-table { width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 12.5px; }
-  .acc-table thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 11px 12px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .acc-table thead th { text-align: left; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 11px 12px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
   .acc-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   .acc-table tbody tr:last-child td { border-bottom: none; }
   .acc-table .num { font-variant-numeric: tabular-nums; font-weight: 600; }
   .amount-in { color: var(--emerald); }
   .cell-primary { font-weight: 700; color: var(--text); }
 
-  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 20px; }
-  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  .badge--posted { background: var(--emerald-soft); color: var(--emerald); }
-  .badge--pending { background: var(--amber-soft); color: var(--amber); }
-
   .row-action-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-  .row-action-btn.is-danger { color: var(--coral); }
+  .row-action-btn.is-danger { color: #B02A2A; }
   .row-action-btn svg { width: 12px; height: 12px; }
   .row-actions { display: flex; align-items: center; gap: 6px; }
 
-  .vv-field { margin-bottom: 14px; }
-  .vv-field label { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-soft); margin-bottom: 6px; }
-  .vv-field input, .vv-field select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; color: var(--text); background: var(--surface); font-family: 'Cairo', sans-serif; box-sizing: border-box; }
-  .vv-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-  .btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; border-radius: var(--radius-sm); padding: 9px 16px; border: 1px solid transparent; font-family: 'Cairo', sans-serif; cursor: pointer; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; border-radius: var(--radius-sm); padding: 9px 16px; border: 1px solid transparent; cursor: pointer; }
   .btn--primary { background: var(--gold); color: var(--ink); }
   .btn--ghost { background: var(--surface); color: var(--text-soft); border-color: var(--border); }
 
@@ -152,39 +87,40 @@
   .dept-row--flight { border-right: 4px solid #1F9D6E; background: #F0FBF6; }
   .dept-row--visa { border-right: 4px solid #C98A1E; background: #FEFAF0; }
   .dept-row--hotel { border-right: 4px solid #D1499A; background: #FDF0F7; }
-  .btn-review { background: var(--emerald-soft); color: var(--emerald); border: 1px solid var(--emerald); font-family: 'Cairo',sans-serif; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+  .btn-review { background: var(--emerald-soft); color: var(--emerald); border: 1px solid var(--emerald); font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
   .btn-review:hover { background: var(--emerald); color: #fff; }
 
   .top-metrics-grid { display: grid; grid-template-columns: 240px 240px 1fr; gap: 16px; margin-bottom: 26px; }
   .metric-card { background: var(--ink); color: #fff; border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; justify-content: center; }
-  .metric-card__label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-on-ink-soft); margin-bottom: 8px; }
-  .metric-card__value { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 18px; color: var(--gold); }
-  .metric-card__sub { font-size: 11px; color: var(--text-on-ink-soft); margin-top: 4px; }
+  .metric-card__label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-on-ink-soft, #9CA3AF); margin-bottom: 8px; }
+  .metric-card__value { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--gold); }
+  .metric-card__sub { font-size: 11px; color: var(--text-on-ink-soft, #9CA3AF); margin-top: 4px; }
   .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 16px; }
-  .chart-card__canvas-wrap { position: relative; height: 200px; }
-
-  .supplier-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 22px; }
-  .supplier-summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
-  .currency-line { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 3px 0; }
-  .currency-line__label { color: var(--text-faint); font-size: 11.5px; }
-  .currency-line__value { font-family: 'Cairo',sans-serif; font-weight: 800; color: var(--gold-deep); }
-  .supplier-group__header-totals { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-  .supplier-summary-card__name { font-family: 'Cairo',sans-serif; font-weight: 800; font-size: 13px; margin-bottom: 6px; }
-  .supplier-summary-card__value { font-family: 'Cairo',sans-serif; font-weight: 800; font-size: 16px; color: var(--gold-deep); }
-  .supplier-summary-card__label { font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
-
-  .supplier-group { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); margin-bottom: 14px; overflow: hidden; }
-  .supplier-group__header { background: var(--ink); color: #fff; padding: 11px 16px; display: flex; align-items: center; justify-content: space-between; }
-  .supplier-group__header-name { font-family: 'Cairo',sans-serif; font-weight: 800; font-size: 13.5px; }
-  .supplier-group__header-total { font-family: 'Cairo',sans-serif; font-weight: 800; color: var(--gold); font-size: 11.5px; }
+  .chart-card__canvas-wrap { position: relative; height: 320px; }
 
   .section-title { display: flex; align-items: center; justify-content: space-between; margin: 26px 0 14px; }
-  .section-title h2 { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15.5px; }
+  .section-title h2 { font-family: var(--font-display); font-weight: 700; font-size: 15.5px; }
   .section-title p { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
 
   .empty-state { text-align: center; padding: 36px 20px; color: var(--text-faint); }
-  .empty-state svg { width: 34px; height: 34px; margin-bottom: 8px; opacity: .5; }
   .empty-state p { font-size: 12px; }
+
+  .dept-analysis-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 24px; margin-bottom: 32px; border-top: 4px solid var(--gold); }
+  .dept-analysis-card:nth-of-type(1) { border-top-color: #1F9D6E; }
+  .dept-analysis-card:nth-of-type(2) { border-top-color: #D1499A; }
+  .dept-analysis-card:nth-of-type(3) { border-top-color: #C98A1E; }
+  .dept-analysis-card + .dept-analysis-card { margin-top: 8px; }
+  .dept-analysis-card__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .dept-analysis-card__title { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+  .dept-analysis-card__chart-wrap { position: relative; height: 260px; margin-bottom: 18px; }
+  .supplier-eye-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .supplier-eye-btn svg { width: 13px; height: 13px; }
+
+  .vv-modal--small { max-width: 900px !important; }
+
+  .page-header { margin-bottom: 24px; }
+  .page-header h1 { font-family: var(--font-display); font-weight: 700; font-size: 22px; }
+  .page-header p { font-size: 13px; color: var(--text-soft); margin-top: 5px; }
 
   @media (max-width: 1100px) { .package-grid { grid-template-columns: 1fr; } .top-metrics-grid { grid-template-columns: 1fr; } }
 </style>
@@ -201,27 +137,27 @@
 
       <div id="dashboard-main-view">
         <div class="page-header">
-          <h1>قسم البيانات</h1>
-          <p>بيانات العملاء (B2B / B2C) والتقارير المحاسبية المجمّعة من كل الأقسام</p>
+          <h1>Data</h1>
+          <p>B2B and B2C customer records, and consolidated sales reporting</p>
         </div>
 
         <div class="package-grid">
           <button class="package-card package-card--b2b" id="pkg-b2b" type="button">
             <div class="package-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15"/><path d="M14 10h6a1 1 0 0 1 1 1v10"/><path d="M3 21h18"/></svg></div>
             <div class="package-card__title">B2B</div>
-            <div class="package-card__desc">حسابات الشركات وموظفيها — هرمية رئيسي/فرعي بنفس الكود</div>
+            <div class="package-card__desc">Company accounts and their employees under a shared code</div>
           </button>
 
           <button class="package-card package-card--b2c" id="pkg-b2c" type="button">
             <div class="package-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M15 20a4.5 4.5 0 0 1 8 0"/></svg></div>
             <div class="package-card__title">B2C</div>
-            <div class="package-card__desc">عملاء أفراد وعائلاتهم — نفس الهرمية والترتيب الديناميكي</div>
+            <div class="package-card__desc">Individual customers and their families under a shared code</div>
           </button>
 
-          <button class="package-card package-card--accounting" id="pkg-accounting" type="button">
+          <button class="package-card package-card--accounting" id="pkg-accounting" type="button" style="display:none;">
             <div class="package-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
             <div class="package-card__title">Accounting</div>
-            <div class="package-card__desc">تقرير المبيعات العام من كل الأقسام + تحليل الموردين والأرباح</div>
+            <div class="package-card__desc">Sales report, review status, and supplier analysis - IT/Owner/ACC/Admin only</div>
           </button>
         </div>
       </div>
@@ -232,109 +168,54 @@
   </div>
 </div>
 
-<!-- ================= حالة تحصيل البيعة (السويتش الرباعي) ================= -->
 <div class="vv-modal-overlay" id="modal-payment-status">
   <div class="vv-modal" style="max-width:480px;">
     <div class="vv-modal__header">
-      <div class="vv-modal__title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10h18M7 15h2m4 0h4M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
-        حالة تحصيل البيعة
-      </div>
-      <button class="vv-modal__close" data-close-modal="modal-payment-status" aria-label="إغلاق">
+      <div class="vv-modal__title">Payment Collection Status</div>
+      <button class="vv-modal__close" data-close-modal="modal-payment-status" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
     <div class="vv-modal__body">
-      <input type="hidden" id="ps-store-key" value="" />
-      <input type="hidden" id="ps-source-id" value="" />
+      <input type="hidden" id="ps-booking-id" value="" />
       <div id="ps-summary-line" style="font-size:12.5px; color:var(--text-soft); margin-bottom:16px; background:var(--canvas); border-radius:var(--radius-sm); padding:10px 12px;"></div>
 
       <div class="payment-switch">
-        <button type="button" class="payment-switch__option" data-payment-status="cash">💵<span>كاش</span></button>
-        <button type="button" class="payment-switch__option" data-payment-status="bank">🏦<span>تحويل بنكي</span></button>
-        <button type="button" class="payment-switch__option" data-payment-status="unpaid">❌<span>لم يدفع</span></button>
-        <button type="button" class="payment-switch__option" data-payment-status="partial">🟡<span>دفع جزء</span></button>
-      </div>
-
-      <div class="vv-field" id="ps-bank-field" style="display:none; margin-top:14px;">
-        <label>الحساب البنكي</label>
-        <select id="ps-bank-select"></select>
+        <button type="button" class="payment-switch__option" data-payment-status="cash">Cash</button>
+        <button type="button" class="payment-switch__option" data-payment-status="bank">Bank</button>
+        <button type="button" class="payment-switch__option" data-payment-status="unpaid">Unpaid</button>
+        <button type="button" class="payment-switch__option" data-payment-status="partial">Partial</button>
       </div>
 
       <div class="vv-field" id="ps-partial-field" style="display:none; margin-top:14px;">
-        <label>المبلغ المدفوع فعليًا</label>
+        <label>Amount actually paid</label>
         <input type="number" min="0" step="0.01" id="ps-partial-amount" value="0" />
         <div id="ps-remaining-preview" style="margin-top:8px; font-size:13px; font-weight:800;"></div>
       </div>
     </div>
     <div class="vv-modal__footer">
-      <button class="btn btn--ghost" data-close-modal="modal-payment-status" type="button">إلغاء</button>
-      <button class="btn btn--primary" id="btn-confirm-payment-status" type="button">تأكيد المراجعة</button>
+      <button class="btn btn--ghost" data-close-modal="modal-payment-status" type="button">Cancel</button>
+      <button class="btn btn--primary" id="btn-confirm-payment-status" type="button">Confirm Review</button>
     </div>
   </div>
 </div>
 
-<!-- ================= آخر تعاملات العائلة/الشركة (مجمّعة) ================= -->
-<div class="vv-modal-overlay" id="modal-group-transactions">
-  <div class="vv-modal" style="max-width:700px;">
+<div class="vv-modal-overlay" id="modal-supplier-detail">
+  <div class="vv-modal vv-modal--small">
     <div class="vv-modal__header">
-      <div class="vv-modal__title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-        <span id="group-transactions-title">آخر التعاملات</span>
-      </div>
-      <button class="vv-modal__close" data-close-modal="modal-group-transactions" aria-label="إغلاق">
+      <div class="vv-modal__title" id="supplier-detail-title">Supplier Sales Report</div>
+      <button class="vv-modal__close" data-close-modal="modal-supplier-detail" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
-    <div class="vv-modal__body" id="group-transactions-body" style="max-height:70vh; overflow-y:auto;"></div>
-  </div>
-</div>
-
-<!-- ================= دفع/مصروف من محفظة العملات الأجنبية ================= -->
-<div class="vv-modal-overlay" id="modal-wallet-pay">
-  <div class="vv-modal" style="max-width:440px;">
-    <div class="vv-modal__header">
-      <div class="vv-modal__title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 9V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2M13 12h8m0 0l-3-3m3 3l-3 3"/></svg>
-        دفع / مصروف من المحفظة
-      </div>
-      <button class="vv-modal__close" data-close-modal="modal-wallet-pay" aria-label="إغلاق">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="vv-modal__body">
-      <input type="hidden" id="wallet-pay-currency" value="" />
-      <div id="wallet-pay-currency-label" style="font-size:12.5px; color:var(--text-soft); margin-bottom:16px; background:var(--canvas); border-radius:var(--radius-sm); padding:10px 12px;"></div>
-      <div class="vv-field"><label>البيان</label><input type="text" id="wallet-pay-description" placeholder="سبب الصرف..." /></div>
-      <div class="vv-field" style="margin-top:12px;"><label>المبلغ</label><input type="number" min="0" step="0.01" id="wallet-pay-amount" placeholder="0.00" /></div>
-    </div>
-    <div class="vv-modal__footer">
-      <button class="btn btn--ghost" data-close-modal="modal-wallet-pay" type="button">إلغاء</button>
-      <button class="btn btn--primary" id="btn-confirm-wallet-pay" type="button">تأكيد الصرف</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= سجل محفظة العملة التاريخي (تحصيلات + مصروفات) ================= -->
-<div class="vv-modal-overlay" id="modal-wallet-history">
-  <div class="vv-modal" style="max-width:640px;">
-    <div class="vv-modal__header">
-      <div class="vv-modal__title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-        <span id="wallet-history-title">سجل المحفظة</span>
-      </div>
-      <button class="vv-modal__close" data-close-modal="modal-wallet-history" aria-label="إغلاق">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="vv-modal__body" id="wallet-history-body" style="max-height:70vh; overflow-y:auto;"></div>
+    <div class="vv-modal__body" id="supplier-detail-body" style="max-height:70vh; overflow-y:auto;"></div>
   </div>
 </div>
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    if (typeof VVComponents !== 'undefined') {
-      VVComponents.mount({ page: "data", title: "قسم البيانات" });
+    if (typeof VVComponents !== "undefined") {
+      VVComponents.mount({ page: "data", title: "Data" });
     }
   });
 </script>

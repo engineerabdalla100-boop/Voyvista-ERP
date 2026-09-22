@@ -1,0 +1,96 @@
+# parties/migrations/0001_initial.py
+
+import django.db.models.deletion
+from decimal import Decimal
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Party',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('code', models.CharField(blank=True, db_index=True, default='', max_length=32)),
+                ('type', models.CharField(choices=[('customer', 'Customer'), ('supplier', 'Supplier')], max_length=16)),
+                ('client_category', models.CharField(choices=[('b2b', 'B2B'), ('b2c', 'B2C')], max_length=8)),
+                ('relationship', models.CharField(blank=True, default='', help_text='B2C: أب/أم/أخ/زوج/ابن/ابنة/قريب...', max_length=64)),
+                ('job_title', models.CharField(blank=True, default='', help_text='B2B: مسمّى وظيفي حر', max_length=120)),
+                ('full_name', models.CharField(max_length=255)),
+                ('phone', models.CharField(blank=True, default='', max_length=32)),
+                ('email', models.EmailField(blank=True, default='', max_length=254)),
+                ('address', models.CharField(blank=True, default='', max_length=500)),
+                ('currency', models.CharField(choices=[('EGP', 'EGP'), ('USD', 'USD'), ('EUR', 'EUR'), ('SAR', 'SAR'), ('KWD', 'KWD'), ('GBP', 'GBP'), ('JPY', 'JPY'), ('CNY', 'CNY'), ('CAD', 'CAD')], default='EGP', max_length=3)),
+                ('credit_limit', models.DecimalField(decimal_places=2, default=Decimal('0'), max_digits=18)),
+                ('opening_balance', models.DecimalField(decimal_places=2, default=Decimal('0'), help_text='مقفول بعد أول حركة مالية حقيقية — نفس مبدأ Account.opening_balance.', max_digits=18)),
+                ('passport_number', models.CharField(blank=True, default='', max_length=64)),
+                ('passport_expiry', models.DateField(blank=True, null=True)),
+                ('date_of_birth', models.DateField(blank=True, null=True)),
+                ('national_id', models.CharField(blank=True, default='', max_length=64)),
+                ('is_vip', models.BooleanField(default=False)),
+                ('preferences', models.TextField(blank=True, default='', help_text='ملاحظات دائمة حرة (تفضيلات العميل).')),
+                ('record_status', models.CharField(choices=[('active', 'Active'), ('archived', 'Archived')], default='active', max_length=16)),
+                ('version', models.PositiveIntegerField(default=0)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('created_by', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='created_parties', to=settings.AUTH_USER_MODEL)),
+                ('parent_party', models.ForeignKey(blank=True, help_text='فاضي = عضو جذر (صاحب الكود الأصلي). موجود = عضو فرعي بيرث نفس كود الجذر.', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='sub_members', to='parties.party')),
+            ],
+            options={
+                'ordering': ['code', 'full_name'],
+            },
+        ),
+        migrations.CreateModel(
+            name='PartyCrmLogEntry',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('note', models.TextField()),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('employee', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='party_crm_entries', to=settings.AUTH_USER_MODEL)),
+                ('party', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='crm_log', to='parties.party')),
+            ],
+            options={
+                'ordering': ['-created_at'],
+            },
+        ),
+        migrations.CreateModel(
+            name='PartyDocument',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('label', models.CharField(max_length=255)),
+                ('document_type', models.CharField(blank=True, default='', max_length=64)),
+                ('expiry_date', models.DateField(blank=True, null=True)),
+                ('file', models.FileField(upload_to='party_documents/%Y/%m/')),
+                ('uploaded_at', models.DateTimeField(auto_now_add=True)),
+                ('party', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='documents', to='parties.party')),
+                ('uploaded_by', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='uploaded_party_documents', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ['-uploaded_at'],
+            },
+        ),
+        migrations.AddIndex(
+            model_name='party',
+            index=models.Index(fields=['code'], name='parties_par_code_73330d_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='party',
+            index=models.Index(fields=['type'], name='parties_par_type_7c8bc7_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='party',
+            index=models.Index(fields=['client_category'], name='parties_par_client__dc6447_idx'),
+        ),
+        migrations.AddConstraint(
+            model_name='party',
+            constraint=models.UniqueConstraint(condition=models.Q(('parent_party__isnull', True)), fields=('code',), name='unique_root_party_code'),
+        ),
+    ]

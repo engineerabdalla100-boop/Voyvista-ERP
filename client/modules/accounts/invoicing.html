@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>&#1575;&#1604;&#1601;&#1608;&#1575;&#1578;&#1610;&#1585; | Voyvista ERP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 680px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); flex-wrap: wrap; }
+
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 950px; font-size: 12px; }
+  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: left; font-variant-numeric: tabular-nums; }
+
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .status-badge--draft { background: #EEF0F4; color: #5C6B82; }
+  .status-badge--issued { background: var(--emerald-soft); color: var(--emerald); }
+  .status-badge--credited { background: #FBE2E2; color: #B02A2A; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-actions { display: flex; gap: 8px; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 280px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .btn-workflow-next { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-deep); cursor: pointer; margin-inline-end: 4px; }
+  .btn-export { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; }
+  .btn-export svg { width: 14px; height: 14px; }
+  .btn-print { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; margin-inline-end: 4px; }
+  .btn-print svg { width: 13px; height: 13px; }
+
+  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>&#1575;&#1604;&#1601;&#1608;&#1575;&#1578;&#1610;&#1585;</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">&#1587;&#1580;&#1604; &#1575;&#1604;&#1601;&#1608;&#1575;&#1578;&#1610;&#1585; &#1575;&#1604;&#1585;&#1587;&#1605;&#1610;&#1577; &#1608;&#1573;&#1589;&#1583;&#1575;&#1585;&#1607;&#1575;</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="ledger-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="invoice-search" placeholder="&#1576;&#1581;&#1579; &#1576;&#1585;&#1602;&#1605; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577;..." />
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn-export" id="btn-export-invoices" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+            &#1578;&#1589;&#1583;&#1610;&#1585; Excel/CSV
+          </button>
+          <button class="btn btn--primary" id="btn-open-add-invoice" type="button">+ &#1601;&#1575;&#1578;&#1608;&#1585;&#1577; &#1580;&#1583;&#1610;&#1583;&#1577;</button>
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="ledger" id="invoices-table">
+          <thead>
+            <tr><th>&#1575;&#1604;&#1585;&#1602;&#1605;</th><th>&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</th><th>&#1575;&#1604;&#1593;&#1605;&#1610;&#1604;</th><th class="num">&#1575;&#1604;&#1573;&#1580;&#1605;&#1575;&#1604;&#1610;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th><th>&#1575;&#1604;&#1573;&#1580;&#1585;&#1575;&#1569;&#1575;&#1578;</th></tr>
+          </thead>
+          <tbody id="invoices-table-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="invoices-empty" style="display:none;"><p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1601;&#1608;&#1575;&#1578;&#1610;&#1585; &#1576;&#1593;&#1583;.</p></div>
+
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-add-invoice">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">&#1601;&#1575;&#1578;&#1608;&#1585;&#1577; &#1580;&#1583;&#1610;&#1583;&#1577;</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-invoice" aria-label="&#1573;&#1594;&#1604;&#1575;&#1602;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</label><input type="date" id="inv-date" /></div>
+        <div class="vv-field"><label>&#1575;&#1604;&#1593;&#1605;&#1610;&#1604;</label><select id="inv-party"></select></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1575;&#1604;&#1573;&#1580;&#1605;&#1575;&#1604;&#1610;</label><input type="number" min="0" step="0.01" id="inv-amount" value="0" /></div>
+        <div class="vv-field"><label>&#1605;&#1585;&#1580;&#1593; &#1575;&#1604;&#1581;&#1580;&#1586;</label><input type="text" id="inv-booking-ref" placeholder="&#1575;&#1582;&#1578;&#1610;&#1575;&#1585;&#1610;" /></div>
+      </div>
+      <div class="vv-field"><label>&#1575;&#1604;&#1576;&#1610;&#1575;&#1606;</label><input type="text" id="inv-description" placeholder="&#1608;&#1589;&#1601; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577;..." /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-invoice" type="button">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+      <button class="btn btn--primary" id="btn-save-invoice" type="button">&#1581;&#1601;&#1592; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577; (&#1603;&#1605;&#1587;&#1608;&#1651;&#1583;&#1577;)</button>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-issue-invoice">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">&#1573;&#1589;&#1583;&#1575;&#1585; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577;</div>
+      <button class="vv-modal__close" data-close-modal="modal-issue-invoice" aria-label="&#1573;&#1594;&#1604;&#1575;&#1602;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <p style="font-size:12.5px; color:var(--text-soft); margin-bottom:14px;">&#1575;&#1582;&#1578;&#1585; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;&#1575;&#1578; &#1575;&#1604;&#1605;&#1581;&#1575;&#1587;&#1576;&#1610;&#1577; &#1575;&#1604;&#1604;&#1610; &#1607;&#1578;&#1578;&#1571;&#1579;&#1585; &#1593;&#1606;&#1583; &#1573;&#1589;&#1583;&#1575;&#1585; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577;. &#1604;&#1606; &#1610;&#1605;&#1603;&#1606; &#1578;&#1593;&#1583;&#1610;&#1604; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577; &#1576;&#1593;&#1583; &#1584;&#1604;&#1603;.</p>
+      <div class="vv-field"><label>&#1581;&#1587;&#1575;&#1576; &#1584;&#1605;&#1605; &#1575;&#1604;&#1593;&#1605;&#1604;&#1575;&#1569; (AR)</label><select id="issue-ar-account"></select></div>
+      <div class="vv-field"><label>&#1581;&#1587;&#1575;&#1576; &#1573;&#1610;&#1585;&#1575;&#1583;&#1575;&#1578; &#1575;&#1604;&#1605;&#1576;&#1610;&#1593;&#1575;&#1578;</label><select id="issue-revenue-account"></select></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-issue-invoice" type="button">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+      <button class="btn btn--primary" id="btn-confirm-issue" type="button">&#1578;&#1571;&#1603;&#1610;&#1583; &#1575;&#1604;&#1573;&#1589;&#1583;&#1575;&#1585;</button>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-credit-reissue">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">&#1573;&#1588;&#1593;&#1575;&#1585; &#1583;&#1575;&#1574;&#1606; &#1608;&#1573;&#1593;&#1575;&#1583;&#1577; &#1573;&#1589;&#1583;&#1575;&#1585;</div>
+      <button class="vv-modal__close" data-close-modal="modal-credit-reissue" aria-label="&#1573;&#1594;&#1604;&#1575;&#1602;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <p style="font-size:12.5px; color:var(--text-soft); margin-bottom:14px;">&#1587;&#1610;&#1578;&#1605; &#1573;&#1604;&#1594;&#1575;&#1569; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577; &#1575;&#1604;&#1571;&#1589;&#1604;&#1610;&#1577; &#1576;&#1573;&#1588;&#1593;&#1575;&#1585; &#1583;&#1575;&#1574;&#1606; (Credit Note)&#1548; &#1608;&#1573;&#1606;&#1588;&#1575;&#1569; &#1601;&#1575;&#1578;&#1608;&#1585;&#1577; &#1580;&#1583;&#1610;&#1583;&#1577; &#1576;&#1575;&#1604;&#1605;&#1576;&#1604;&#1594; &#1575;&#1604;&#1589;&#1581;&#1610;&#1581;.</p>
+      <div class="vv-field"><label>&#1575;&#1604;&#1605;&#1576;&#1604;&#1594; &#1575;&#1604;&#1580;&#1583;&#1610;&#1583; &#1575;&#1604;&#1589;&#1581;&#1610;&#1581;</label><input type="number" min="0" step="0.01" id="cr-new-amount" value="0" /></div>
+      <div class="vv-field"><label>&#1576;&#1610;&#1575;&#1606; &#1575;&#1604;&#1601;&#1575;&#1578;&#1608;&#1585;&#1577; &#1575;&#1604;&#1580;&#1583;&#1610;&#1583;&#1577;</label><input type="text" id="cr-description" placeholder="&#1575;&#1582;&#1578;&#1610;&#1575;&#1585;&#1610;" /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-credit-reissue" type="button">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+      <button class="btn btn--primary" id="btn-confirm-credit-reissue" type="button">&#1578;&#1571;&#1603;&#1610;&#1583; &#1575;&#1604;&#1573;&#1604;&#1594;&#1575;&#1569; &#1608;&#1573;&#1593;&#1575;&#1583;&#1577; &#1575;&#1604;&#1573;&#1589;&#1583;&#1575;&#1585;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "acc_invoicing", title: "\u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631" });
+  });
+</script>
+<script src="/client/modules/accounts/invoicing.js"></script>
+</body>
+</html>

@@ -1,357 +1,307 @@
-/**
- * it.js — IT Administration dashboard logic.
- * -----------------------------------------------------------------------
- * Reads REAL local data — handles audit approvals, employee account
- * provisioning with 11-module granular access control, local storage
- * health diagnostics, system broadcasts, and safe data purges.
- * -----------------------------------------------------------------------
- */
-
-(function () {
+﻿(function () {
   "use strict";
 
   function openModal(id) { document.getElementById(id)?.classList.add("is-open"); }
   function closeModal(id) { document.getElementById(id)?.classList.remove("is-open"); }
+  function escapeHtml(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .split(String.fromCharCode(39)).join("&#039;");
+  }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("it-open-audit")?.addEventListener("click", () => { openModal("modal-audit"); renderAuditLog(); });
-    document.getElementById("it-open-employees")?.addEventListener("click", () => { openModal("modal-employees"); renderEmployees(); });
-    document.getElementById("it-open-health")?.addEventListener("click", () => { openModal("modal-health"); runDiagnostics(); });
-    document.getElementById("it-open-broadcast")?.addEventListener("click", () => openModal("modal-broadcast"));
-    document.getElementById("it-open-sessions")?.addEventListener("click", () => { openModal("modal-sessions"); renderCurrentSession(); });
-    document.getElementById("it-open-recovery")?.addEventListener("click", () => openModal("modal-recovery"));
-    document.getElementById("it-open-reset-accounts")?.addEventListener("click", resetAccountsData);
+  var editingEmployeeId = null;
+  var allEmployeesCache = [];
 
-    document.querySelectorAll("[data-close-modal]").forEach((btn) => {
-      btn.addEventListener("click", () => closeModal(btn.getAttribute("data-close-modal")));
+  document.addEventListener("DOMContentLoaded", function () {
+    document.getElementById("it-open-employees")?.addEventListener("click", function () { openModal("modal-employees"); loadEmployees(); });
+    document.getElementById("it-open-online")?.addEventListener("click", function () { openModal("modal-online"); loadOnline(); });
+    document.getElementById("it-open-activity")?.addEventListener("click", function () { openModal("modal-activity"); loadActivity(); });
+    document.getElementById("it-open-backup")?.addEventListener("click", downloadBackup);
+
+    document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
+      btn.addEventListener("click", function () { closeModal(btn.getAttribute("data-close-modal")); });
     });
-    document.querySelectorAll(".vv-modal-overlay").forEach((overlay) => {
-      overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("is-open"); });
+    document.querySelectorAll(".vv-modal-overlay").forEach(function (overlay) {
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.classList.remove("is-open"); });
     });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") document.querySelectorAll(".vv-modal-overlay.is-open").forEach((o) => o.classList.remove("is-open"));
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") document.querySelectorAll(".vv-modal-overlay.is-open").forEach(function (o) { o.classList.remove("is-open"); });
     });
 
-    document.getElementById("btn-send-broadcast")?.addEventListener("click", sendBroadcast);
-    document.getElementById("btn-clear-broadcast")?.addEventListener("click", clearBroadcast);
-
-    // Initialize Employee Creation Form Handler
-    initUserFormHandler();
+    document.getElementById("vv-it-user-form")?.addEventListener("submit", handleFormSubmit);
+    document.getElementById("it-form-cancel-btn")?.addEventListener("click", resetForm);
+    document.getElementById("activity-dept-filter")?.addEventListener("change", loadActivity);
+    document.getElementById("activity-date-filter")?.addEventListener("change", loadActivity);
+    document.getElementById("btn-clear-activity-filters")?.addEventListener("click", function () {
+      document.getElementById("activity-dept-filter").value = "";
+      document.getElementById("activity-date-filter").value = "";
+      loadActivity();
+    });
   });
 
   // =========================================================================
-  // 1) Audit Log Engine
+  // 1) Employee Accounts & Access
   // =========================================================================
 
-  const CHANGE_TYPE_LABELS = { create: "New Account", edit: "Edit Account", deactivate: "Deactivate", delete: "Delete Account", link: "Link Party", unlink: "Unlink Party" };
-  const STATUS_LABELS = { pending: "Pending", approved: "Approved", rejected: "Rejected", apply_failed: "Apply Failed" };
-
-  const requestsInFlight = new Set();
-  let expandedRequestId = null;
-
-  function updateAuditPendingBadge() {
-    const card = document.getElementById("it-open-audit");
-    if (!card || !window.VVChangeRequests) return;
-    const count = window.VVChangeRequests.getPending().length;
-    let badge = document.getElementById("it-audit-pending-badge");
-    const titleEl = card.querySelector(".it-card__title");
-    if (count === 0) { if (badge) badge.remove(); return; }
-    if (!badge) {
-      badge = document.createElement("span");
-      badge.id = "it-audit-pending-badge";
-      badge.className = "pending-count-badge";
-      titleEl.appendChild(badge);
+  async function loadEmployees() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEES);
+      allEmployeesCache = result.data.results || result.data;
+    } catch (err) {
+      allEmployeesCache = [];
     }
-    badge.textContent = count;
+    renderEmployeeDirectory();
   }
 
-  function renderAuditLog() {
-    const tbody = document.getElementById("audit-log-body");
-    const empty = document.getElementById("audit-log-empty");
-    if (!window.VVChangeRequests) { tbody.innerHTML = ""; empty.style.display = "block"; return; }
+  function renderEmployeeDirectory() {
+    var container = document.getElementById("it-employee-directory");
+    if (allEmployeesCache.length === 0) {
+      container.innerHTML = "<div class=\"empty-state\">No accounts created yet.</div>";
+      return;
+    }
 
-    const all = [...window.VVChangeRequests.getAll()].sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
-    if (all.length === 0) { tbody.innerHTML = ""; empty.style.display = "block"; return; }
-    empty.style.display = "none";
+    container.innerHTML =
+      "<table class=\"it-table\">" +
+        "<thead><tr><th>Full Name</th><th>Username</th><th>Role</th><th>Modules</th><th>Status</th><th>Actions</th></tr></thead>" +
+        "<tbody>" + allEmployeesCache.map(function (u) {
+          var actionsHtml =
+            "<button class=\"row-action-btn\" data-edit-emp=\"" + u.id + "\" title=\"Edit\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z\"/></svg></button>" +
+            "<button class=\"row-action-btn " + (u.is_active_employee ? "is-danger" : "") + "\" data-toggle-emp=\"" + u.id + "\" title=\"" + (u.is_active_employee ? "Deactivate" : "Reactivate") + "\">" +
+              (u.is_active_employee
+                ? "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg>"
+                : "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 4v6h6M20 20v-6h-6\"/><path d=\"M4 10a8 8 0 0 1 14.3-4.9M20 14a8 8 0 0 1-14.3 4.9\"/></svg>") +
+            "</button>";
 
-    tbody.innerHTML = all.map((req) => {
-      const isPending = req.status === "pending";
-      const inFlight = requestsInFlight.has(req.id);
-      const isExpanded = expandedRequestId === req.id;
+          if (!u.is_active_employee) {
+            actionsHtml += "<button class=\"row-action-btn is-danger\" data-hard-delete-emp=\"" + u.id + "\" title=\"Delete Permanently\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg></button>";
+          }
 
-      const actionsHtml = isPending
-        ? `<button class="btn-approve" data-approve-audit="${req.id}" ${inFlight ? "disabled" : ""}>${inFlight ? "…" : "✓ Approve"}</button>
-           <button class="btn-reject" data-reject-audit="${req.id}" ${inFlight ? "disabled" : ""}>${inFlight ? "…" : "✕ Reject"}</button>
-           <button class="btn-details" data-toggle-audit-details="${req.id}">${isExpanded ? "Hide" : "Details"}</button>`
-        : `<button class="btn-details" data-toggle-audit-details="${req.id}">${isExpanded ? "Hide" : "Details"}</button>`;
+          return "<tr>" +
+            "<td><strong>" + escapeHtml(u.full_name) + "</strong></td>" +
+            "<td><code>" + escapeHtml(u.username) + "</code></td>" +
+            "<td><span class=\"status-badge status-badge--approved\">" + escapeHtml(u.role) + "</span></td>" +
+            "<td style=\"font-size:11px; color:var(--text-soft);\">" + escapeHtml((u.allowed_modules || []).join(", ") || "All Modules") + "</td>" +
+            "<td>" + (u.is_active_employee ? "<span class=\"status-badge status-badge--approved\">Active</span>" : "<span class=\"status-badge status-badge--pending\">Disabled</span>") + "</td>" +
+            "<td>" + actionsHtml + "</td>" +
+          "</tr>";
+        }).join("") + "</tbody>" +
+      "</table>";
 
-      let rows = `
-      <tr>
-        <td style="font-size:11px; color:var(--text-faint);">${req.requestedAt}</td>
-        <td><strong>${req.requestedBy}</strong></td>
-        <td>${CHANGE_TYPE_LABELS[req.changeType] || req.changeType}</td>
-        <td>${req.targetLabel}</td>
-        <td><span class="status-badge status-badge--${req.status}">${STATUS_LABELS[req.status] || req.status}</span></td>
-        <td style="font-size:11px; color:var(--text-faint);">${req.reviewedBy ? `${req.reviewedBy} — ${req.reviewedAt}` : "—"}</td>
-        <td style="white-space:nowrap;">${actionsHtml}</td>
-      </tr>`;
+    container.querySelectorAll("[data-edit-emp]").forEach(function (btn) {
+      btn.addEventListener("click", function () { startEditEmployee(btn.dataset.editEmp); });
+    });
+    container.querySelectorAll("[data-toggle-emp]").forEach(function (btn) {
+      btn.addEventListener("click", function () { toggleEmployeeActive(btn.dataset.toggleEmp); });
+    });
+    container.querySelectorAll("[data-hard-delete-emp]").forEach(function (btn) {
+      btn.addEventListener("click", function () { hardDeleteEmployee(btn.dataset.hardDeleteEmp); });
+    });
+  }
 
-      if (isExpanded) {
-        rows += `
-      <tr class="audit-details-row">
-        <td colspan="7">
-          <div class="detail-line"><strong>Request ID:</strong> ${req.id}</div>
-          <div class="detail-line"><strong>Module:</strong> ${req.module}</div>
-          <div class="detail-line"><strong>Change Type:</strong> ${req.changeType}</div>
-          <div class="detail-line"><strong>Target:</strong> ${req.targetLabel} ${req.targetId ? `(${req.targetId})` : "(new)"}</div>
-          <div class="detail-line"><strong>Current Status:</strong> ${STATUS_LABELS[req.status] || req.status}</div>
-          ${(req.fieldChanges && req.fieldChanges.length > 0) ? `<div class="detail-line"><strong>Field Changes:</strong> ${req.fieldChanges.map((c) => `${c.field}: "${c.oldValue ?? "—"}" ➜ "${c.newValue ?? "—"}"`).join(" | ")}</div>` : ""}
-          ${req.payload ? `<div class="detail-line"><strong>Payload:</strong> <code style="font-size:10.5px;">${escapeHtml(JSON.stringify(req.payload))}</code></div>` : ""}
-          <div class="detail-line"><strong>Requested By:</strong> ${req.requestedBy} — ${req.requestedAt}</div>
-          <div class="detail-line"><strong>Reviewed By:</strong> ${req.reviewedBy ? `${req.reviewedBy} — ${req.reviewedAt}` : "— (not yet reviewed)"}</div>
-          ${req.status === "rejected" ? `<div class="detail-line"><strong>Rejection Reason:</strong> ${req.rejectionReason}</div>` : ""}
-          ${req.status === "apply_failed" ? `<div class="detail-line" style="color:var(--coral);"><strong>Apply Failure Reason:</strong> ${req.applyFailureReason}</div>` : ""}
-        </td>
-      </tr>`;
+  function startEditEmployee(id) {
+    var emp = allEmployeesCache.find(function (u) { return String(u.id) === String(id); });
+    if (!emp) return;
+
+    editingEmployeeId = id;
+    document.getElementById("it-form-title").textContent = "Edit: " + emp.full_name;
+    document.getElementById("it-u-editing-id").value = id;
+    document.getElementById("it-u-firstname").value = emp.first_name || "";
+    document.getElementById("it-u-lastname").value = emp.last_name || "";
+    document.getElementById("it-u-username").value = emp.username;
+    document.getElementById("it-u-email").value = emp.email;
+    document.getElementById("it-u-role").value = emp.role;
+    document.getElementById("it-u-password").value = "";
+    document.getElementById("it-u-password").placeholder = "Leave empty to keep current password";
+    document.getElementById("it-u-password-label").textContent = "New Password (optional)";
+    document.getElementById("it-form-submit-btn").textContent = "Save Changes";
+    document.getElementById("it-form-cancel-btn").style.display = "inline-flex";
+
+    document.querySelectorAll(".it-mod-chk").forEach(function (chk) {
+      chk.checked = (emp.allowed_modules || []).indexOf(chk.value) !== -1;
+    });
+
+    document.getElementById("vv-it-user-form").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function resetForm() {
+    editingEmployeeId = null;
+    document.getElementById("it-form-title").textContent = "Create Employee Account & Set Permissions";
+    document.getElementById("it-u-editing-id").value = "";
+    document.getElementById("vv-it-user-form").reset();
+    document.getElementById("it-u-password").placeholder = "Initial password";
+    document.getElementById("it-u-password-label").textContent = "Password";
+    document.getElementById("it-form-submit-btn").textContent = "Save Account & Grant Access";
+    document.getElementById("it-form-cancel-btn").style.display = "none";
+  }
+
+  async function handleFormSubmit(e) {
+    e.preventDefault();
+
+    var selectedModules = Array.from(document.querySelectorAll(".it-mod-chk:checked")).map(function (cb) { return cb.value; });
+    var password = document.getElementById("it-u-password").value;
+
+    var payload = {
+      first_name: document.getElementById("it-u-firstname").value.trim(),
+      last_name: document.getElementById("it-u-lastname").value.trim(),
+      username: document.getElementById("it-u-username").value.trim(),
+      email: document.getElementById("it-u-email").value.trim(),
+      role: document.getElementById("it-u-role").value,
+      allowed_modules: selectedModules,
+    };
+    if (password) payload.password = password;
+
+    var btn = document.getElementById("it-form-submit-btn");
+    btn.disabled = true;
+
+    try {
+      if (editingEmployeeId) {
+        await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEE_DETAIL(editingEmployeeId), { method: "PATCH", body: payload });
+      } else {
+        if (!password) { alert("Password is required for a new account."); btn.disabled = false; return; }
+        await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEES, { method: "POST", body: payload });
       }
-      return rows;
-    }).join("");
-
-    tbody.querySelectorAll("[data-approve-audit]").forEach((btn) => {
-      btn.addEventListener("click", () => handleAuditApprove(btn.dataset.approveAudit));
-    });
-    tbody.querySelectorAll("[data-reject-audit]").forEach((btn) => {
-      btn.addEventListener("click", () => handleAuditReject(btn.dataset.rejectAudit));
-    });
-    tbody.querySelectorAll("[data-toggle-audit-details]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        expandedRequestId = expandedRequestId === btn.dataset.toggleAuditDetails ? null : btn.dataset.toggleAuditDetails;
-        renderAuditLog();
-      });
-    });
+      resetForm();
+      await loadEmployees();
+    } catch (err) {
+      alert(err.message || "Failed to save account.");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  async function toggleEmployeeActive(id) {
+    var emp = allEmployeesCache.find(function (u) { return String(u.id) === String(id); });
+    if (!emp) return;
+
+    var confirmMsg = emp.is_active_employee ? "Deactivate \"" + emp.full_name + "\"?" : "Reactivate \"" + emp.full_name + "\"?";
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEE_TOGGLE_ACTIVE(id), { method: "POST" });
+      await loadEmployees();
+    } catch (err) {
+      alert(err.message || "Failed to update.");
+    }
   }
 
-  function handleAuditApprove(requestId) {
-    if (requestsInFlight.has(requestId)) return;
-    requestsInFlight.add(requestId);
-    renderAuditLog();
-    updateAuditPendingBadge();
-    window.VVChangeRequests.approve(requestId, () => {
-      requestsInFlight.delete(requestId);
-      renderAuditLog();
-      updateAuditPendingBadge();
-    });
-  }
+  async function hardDeleteEmployee(id) {
+    var emp = allEmployeesCache.find(function (u) { return String(u.id) === String(id); });
+    if (!emp) return;
+    if (!confirm("Permanently delete \"" + emp.full_name + "\"? This cannot be undone.")) return;
 
-  function handleAuditReject(requestId) {
-    if (requestsInFlight.has(requestId)) return;
-    requestsInFlight.add(requestId);
-    renderAuditLog();
-    updateAuditPendingBadge();
-    window.VVChangeRequests.reject(requestId, () => {
-      requestsInFlight.delete(requestId);
-      renderAuditLog();
-      updateAuditPendingBadge();
-    });
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEE_DETAIL(id), { method: "DELETE" });
+      await loadEmployees();
+    } catch (err) {
+      if (err.status === 409) {
+        alert("Cannot delete this account - it has related records (bookings, sales, etc). It will stay disabled instead.");
+      } else {
+        alert(err.message || "Failed to delete.");
+      }
+    }
   }
 
   // =========================================================================
-  // 2) Employee Accounts & Granular 11-Module Permissions
+  // 2) Who's Online
   // =========================================================================
 
-  function renderEmployees() {
-    if (window.VVEmployees) {
-      window.VVEmployees.renderDirectoryInto("it-employee-directory");
-    } else {
-      const users = JSON.parse(localStorage.getItem("vv_employees")) || [];
-      const container = document.getElementById("it-employee-directory");
-      if (!container) return;
-
-      if (!users.length) {
-        container.innerHTML = `<div style="text-align:center; padding:20px; font-size:12px; color:var(--text-soft);">No accounts created yet.</div>`;
+  async function loadOnline() {
+    var body = document.getElementById("online-body");
+    body.innerHTML = "<div class=\"empty-state\">Loading...</div>";
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEES + "online/");
+      var online = result.data || [];
+      if (online.length === 0) {
+        body.innerHTML = "<div class=\"empty-state\">No one else is online right now.</div>";
         return;
       }
-
-      container.innerHTML = `
-        <table class="it-table">
-          <thead>
-            <tr><th>Full Name</th><th>Username</th><th>Role</th><th>Allowed Modules</th></tr>
-          </thead>
-          <tbody>
-            ${users.map(u => `
-              <tr>
-                <td><strong>${escapeHtml(u.full_name || u.name)}</strong></td>
-                <td><code>${escapeHtml(u.username)}</code></td>
-                <td><span class="status-badge status-badge--approved">${escapeHtml(u.role)}</span></td>
-                <td style="font-size:11px; color:var(--text-soft);">${(u.allowedModules || []).join(", ") || "All Modules"}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
+      body.innerHTML =
+        "<table class=\"it-table\">" +
+          "<thead><tr><th></th><th>Name</th><th>Role</th><th>Last seen</th></tr></thead>" +
+          "<tbody>" + online.map(function (u) {
+            var lastSeen = u.last_seen ? new Date(u.last_seen).toLocaleTimeString() : "-";
+            return "<tr>" +
+              "<td><span class=\"online-dot\"></span></td>" +
+              "<td><strong>" + escapeHtml(u.full_name) + "</strong></td>" +
+              "<td>" + escapeHtml(u.role) + "</td>" +
+              "<td style=\"font-size:11px; color:var(--text-faint);\">" + escapeHtml(lastSeen) + "</td>" +
+            "</tr>";
+          }).join("") + "</tbody>" +
+        "</table>";
+    } catch (err) {
+      body.innerHTML = "<div class=\"empty-state\">" + escapeHtml(err.message || "Failed to load.") + "</div>";
     }
   }
 
-  function initUserFormHandler() {
-    const userForm = document.getElementById("vv-it-user-form");
-    if (!userForm) return;
-
-    userForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-
-      const selectedModules = Array.from(document.querySelectorAll(".it-mod-chk:checked")).map(cb => cb.value);
-      const newUser = {
-        id: "usr_" + Date.now(),
-        full_name: document.getElementById("it-u-fullname").value.trim(),
-        username: document.getElementById("it-u-username").value.trim().toLowerCase(),
-        password: document.getElementById("it-u-password").value,
-        role: document.getElementById("it-u-role").value,
-        allowedModules: selectedModules,
-        createdAt: new Date().toISOString()
-      };
-
-      const users = JSON.parse(localStorage.getItem("vv_employees")) || [];
-      users.push(newUser);
-      localStorage.setItem("vv_employees", JSON.stringify(users));
-
-      alert(`Account created successfully for ${newUser.full_name}!`);
-      userForm.reset();
-      renderEmployees();
-    });
-  }
-
   // =========================================================================
-  // 3) System Health Engine
+  // 3) Recent Activity
   // =========================================================================
 
-  const KNOWN_STORES = [
-    { key: "vv_sales_data", label: "Flights sales" },
-    { key: "vv_hotel_sales_data", label: "Hotels sales" },
-    { key: "vv_visa_sales_data", label: "Visas sales" },
-    { key: "vv_requests_data", label: "Flights pending requests" },
-    { key: "vv_hotel_requests_data", label: "Hotels pending requests" },
-    { key: "vv_visa_requests_data", label: "Visas pending requests" },
-    { key: "vv_acc_customers", label: "Customers (financial)" },
-    { key: "vv_acc_party_meta", label: "Customer/company profiles" },
-    { key: "vv_chart_of_accounts", label: "Chart of Accounts" },
-    { key: "vv_journal_entries", label: "Journal Entries" },
-    { key: "vv_change_requests", label: "Change Requests (Maker-Checker)" },
-    { key: "vv_employees", label: "Employee Directory" },
-    { key: "vv_owner_files", label: "Owner's personal files" },
-  ];
+  async function loadActivity() {
+    var body = document.getElementById("activity-body");
+    body.innerHTML = "<div class=\"empty-state\">Loading...</div>";
 
-  function runDiagnostics() {
-    const results = document.getElementById("diagnostics-results");
+    var dept = document.getElementById("activity-dept-filter").value;
+    var date = document.getElementById("activity-date-filter").value;
+    var params = [];
+    if (dept) params.push("department=" + dept);
+    if (date) params.push("date=" + date);
+    var query = params.length ? "?" + params.join("&") : "";
 
-    let totalBytes = 0;
-    let totalKeys = 0;
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        const value = localStorage.getItem(key) || "";
-        totalBytes += (key.length + value.length) * 2;
-        totalKeys++;
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.BOOKINGS + "recent-activity/" + query);
+      var rows = result.data || [];
+      if (rows.length === 0) {
+        body.innerHTML = "<div class=\"empty-state\">No bookings found.</div>";
+        return;
       }
-    } catch (e) { /* ignore */ }
-
-    const storeRows = KNOWN_STORES.map((store) => {
-      const raw = localStorage.getItem(store.key);
-      const sizeKb = raw ? (raw.length * 2 / 1024).toFixed(1) : "0.0";
-      let count = "—";
-      try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) count = parsed.length; else if (parsed && typeof parsed === "object") count = Object.keys(parsed).length; } catch (e) {}
-      return `<div class="health-metric"><span>${store.label}</span><span class="health-status health-status--ok">${count} records — ${sizeKb} KB</span></div>`;
-    }).join("");
-
-    const totalMb = (totalBytes / 1024 / 1024).toFixed(2);
-    const quotaWarning = totalBytes > 4 * 1024 * 1024;
-
-    results.innerHTML = `
-      <div class="health-metric">
-        <span>Total local storage used (this browser)</span>
-        <span class="health-status ${quotaWarning ? "health-status--warn" : "health-status--ok"}">${totalMb} MB across ${totalKeys} keys</span>
-      </div>
-      ${storeRows}
-      <div class="honest-note" style="margin-top:14px; margin-bottom:0;">This is real data read directly from this browser's storage — not a simulated database or API check, since there's no backend server to check yet. If usage approaches the browser's limit (typically 5–10 MB), the oldest records in the biggest stores are the first place to look.</div>
-    `;
+      body.innerHTML =
+        "<table class=\"it-table\">" +
+          "<thead><tr><th>Dept</th><th>Booking Date</th><th>Customer</th><th>Created By</th><th>Last Edited By</th><th>Last Updated</th></tr></thead>" +
+          "<tbody>" + rows.map(function (r) {
+            var updatedAt = r.updated_at ? new Date(r.updated_at).toLocaleString() : "-";
+            return "<tr>" +
+              "<td>" + escapeHtml(r.department) + "</td>" +
+              "<td>" + escapeHtml(r.date || "-") + "</td>" +
+              "<td class=\"cell-primary\">" + escapeHtml(r.passenger_name) + "</td>" +
+              "<td>" + escapeHtml(r.created_by_name || "-") + "</td>" +
+              "<td>" + escapeHtml(r.updated_by_name || "-") + "</td>" +
+              "<td style=\"font-size:11px; color:var(--text-faint);\">" + escapeHtml(updatedAt) + "</td>" +
+            "</tr>";
+          }).join("") + "</tbody>" +
+        "</table>";
+    } catch (err) {
+      body.innerHTML = "<div class=\"empty-state\">" + escapeHtml(err.message || "Failed to load.") + "</div>";
+    }
   }
 
   // =========================================================================
-  // 4) Broadcast Message
+  // 4) Full Database Backup
   // =========================================================================
 
-  function sendBroadcast() {
-    const level = document.getElementById("broadcast-level").value;
-    const message = document.getElementById("broadcast-message").value.trim();
-    if (!message) { alert("Please enter a message."); return; }
+  function downloadBackup() {
+    var token = localStorage.getItem(VV_CONFIG.STORAGE_KEYS.TOKEN);
+    var url = VV_CONFIG.BASE_URL + "/backup/full/";
 
-    localStorage.setItem("vv_active_broadcast", JSON.stringify({ level, message, postedAt: new Date().toISOString() }));
-    alert("Banner published — it will show on every page in this browser.");
-    document.getElementById("broadcast-message").value = "";
-    closeModal("modal-broadcast");
+    fetch(url, { headers: { "Authorization": "Token " + token } })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Failed to generate backup (status " + res.status + ").");
+        var disposition = res.headers.get("Content-Disposition") || "";
+        var match = disposition.match(/filename="?([^"]+)"?/);
+        var filename = match ? match[1] : "Voyvista-Backup.json";
+        return res.blob().then(function (blob) { return { blob: blob, filename: filename }; });
+      })
+      .then(function (result) {
+        var link = document.createElement("a");
+        link.href = URL.createObjectURL(result.blob);
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      })
+      .catch(function (err) { alert(err.message || "Failed to download backup."); });
   }
-
-  function clearBroadcast() {
-    localStorage.removeItem("vv_active_broadcast");
-    alert("Banner cleared.");
-    closeModal("modal-broadcast");
-  }
-
-  // =========================================================================
-  // 5) Session Tracker
-  // =========================================================================
-
-  function renderCurrentSession() {
-    const tbody = document.getElementById("current-session-body");
-    const user = (typeof VVComponents !== "undefined" && VVComponents.getCurrentUser) ? VVComponents.getCurrentUser() : {};
-    const rows = [
-      ["User", user.full_name || "Demo User"],
-      ["Role", user.role || "employee"],
-      ["Browser", navigator.userAgent],
-      ["Page loaded at", new Date().toLocaleString()],
-      ["IP Address", "Not available client-side — requires a backend request"],
-    ];
-    tbody.innerHTML = rows.map(([label, value]) => `<tr><td style="font-weight:700; width:140px;">${label}</td><td>${value}</td></tr>`).join("");
-  }
-
-  // =========================================================================
-  // 6) Reset Accounts Data
-  // =========================================================================
-
-  const ACCOUNTS_RESET_KEYS = ["vv_chart_of_accounts", "vv_change_requests", "vv_journal_entries"];
-
-  function resetAccountsData() {
-    const firstConfirm = confirm(
-      "هل أنت متأكد إنك عايز تمسح كل بيانات الحسابات؟\n\n" +
-      "هيتمسح: شجرة الحسابات كاملة، كل القيود اليومية، وكل طلبات التعديل المعلّقة والمنتهية.\n" +
-      "مش هيتأثر: الطيران/الفنادق/الفيزا، العملاء، الموظفين.\n\n" +
-      "اضغط OK للمتابعة."
-    );
-    if (!firstConfirm) return;
-
-    const secondConfirm = confirm(
-      "تأكيد أخير — العملية دي لا يمكن التراجع عنها.\n\n" +
-      "اضغط OK فقط لو متأكد 100%."
-    );
-    if (!secondConfirm) return;
-
-    ACCOUNTS_RESET_KEYS.forEach((key) => localStorage.removeItem(key));
-    alert("تم مسح بيانات الحسابات بنجاح. الصفحة هتعمل Refresh دلوقتي.");
-    location.reload();
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    updateAuditPendingBadge();
-    if (document.getElementById("modal-audit")) renderAuditLog();
-
-    window.addEventListener("storage", (e) => {
-      if (e.key === "vv_change_requests") {
-        updateAuditPendingBadge();
-        if (document.getElementById("modal-audit")?.classList.contains("is-open")) renderAuditLog();
-      }
-    });
-  });
 })();

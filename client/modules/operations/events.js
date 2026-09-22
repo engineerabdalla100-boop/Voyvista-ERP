@@ -1,88 +1,126 @@
-/**
- * events.js — client/modules/operations/ (الفعاليات)
- * -----------------------------------------------------------------------
- * Data store: vv_events — [{
- *   id, location, date, peopleCount,
- *   expenseItems: [{ id, description, category ("purchase"|"rental"), amount }],
- *   companies: [{ id, name }],
- *   team: [{ id, name, role }],
- *   totalSpent,   // ALWAYS derived — sum of expenseItems, recomputed at
- *                 // save time, never trusted from a stale stored value
- *   createdAt
- * }]
- *
- * Purchases/rentals are sub-details of spending (each expense item picks
- * a category), matching "مشتريات/استئجارات تبقى متفرعة من الصرف" exactly
- * — there's no separate top-level "purchases" or "rentals" list, just one
- * spending list where each line says which kind it is.
- * -----------------------------------------------------------------------
- */
-
 (function () {
   "use strict";
 
-  function readEvents() {
-    try {
-      const raw = localStorage.getItem("vv_events");
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error("events.js: vv_events was corrupted — starting from an empty list instead of crashing.", e);
-      return [];
-    }
-  }
-  function writeEvents(rows) {
-    try { localStorage.setItem("vv_events", JSON.stringify(rows)); return true; }
-    catch (e) { console.error("events.js: failed to write vv_events.", e); alert("تعذّر الحفظ — مساحة التخزين ممتلئة على الأرجح."); return false; }
-  }
+  var editingId = null;
+  var allEvents = [];
+  var draftExpenseItems = [];
+  var draftCompanies = [];
+  var draftTeam = [];
 
-  function generateId(prefix) { return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
   function todayISO() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
-  function fmtMoney(n) { return (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtMoney(n) {
+    return (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function on(id, event, handler) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener(event, handler);
+    return el;
+  }
+  function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove("is-open");
+  }
 
-  // In-memory working copies of the three sub-lists while the form is
-  // open — only committed to vv_events on Save, so a cancelled form
-  // never leaves a half-entered row behind.
-  let draftExpenseItems = [];
-  let draftCompanies = [];
-  let draftTeam = [];
+  // =========================================================================
+  // Load and render main table
+  // =========================================================================
+
+  async function loadEvents(search) {
+    try {
+      var params = search ? "?search=" + encodeURIComponent(search) : "";
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EVENTS + params);
+      allEvents = result.data.results || result.data;
+    } catch (err) {
+      allEvents = [];
+    }
+    renderEventsTable();
+  }
+
+  function renderEventsTable() {
+    var rows = allEvents.slice().sort(function (a, b) { return a.id < b.id ? 1 : -1; });
+    var tbody = document.getElementById("events-table-body");
+    var table = document.getElementById("events-table");
+    var empty = document.getElementById("events-empty-state");
+
+    if (rows.length === 0) {
+      table.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    table.style.display = "table";
+    empty.style.display = "none";
+
+    tbody.innerHTML = rows.map(function (r) {
+      return "<tr>" +
+        "<td><strong>" + r.location + "</strong></td>" +
+        "<td>" + r.date + "</td>" +
+        "<td class=\"num\">" + fmtMoney(r.total_spent) + "</td>" +
+        "<td>" + r.people_count + "</td>" +
+        "<td>" + r.companies.length + "</td>" +
+        "<td>" + r.team.length + "</td>" +
+        "<td>" +
+          "<button class=\"row-action-btn\" data-view-event=\"" + r.id + "\" title=\"View\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 16v-4M12 8h.01\"/></svg></button>" +
+          "<button class=\"row-action-btn\" data-edit-event=\"" + r.id + "\" title=\"Edit\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z\"/></svg></button>" +
+          "<button class=\"row-action-btn is-danger\" data-delete-event=\"" + r.id + "\" title=\"Delete\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg></button>" +
+        "</td>" +
+      "</tr>";
+    }).join("");
+
+    tbody.querySelectorAll("[data-view-event]").forEach(function (b) {
+      b.addEventListener("click", function () { viewEvent(b.dataset.viewEvent); });
+    });
+    tbody.querySelectorAll("[data-edit-event]").forEach(function (b) {
+      b.addEventListener("click", function () { openEditModal(b.dataset.editEvent); });
+    });
+    tbody.querySelectorAll("[data-delete-event]").forEach(function (b) {
+      b.addEventListener("click", function () { deleteEvent(b.dataset.deleteEvent); });
+    });
+  }
 
   // =========================================================================
   // Expense items sub-form
   // =========================================================================
 
   function renderExpenseItemsList() {
-    const wrap = document.getElementById("expense-items-list");
-    wrap.innerHTML = draftExpenseItems.map((item, i) => `
-      <div class="sub-item-row">
-        <select data-expense-category="${i}" style="width:110px;">
-          <option value="purchase" ${item.category === "purchase" ? "selected" : ""}>مشتريات</option>
-          <option value="rental" ${item.category === "rental" ? "selected" : ""}>استئجار</option>
-        </select>
-        <input type="text" data-expense-desc="${i}" placeholder="البيان..." value="${item.description}" style="flex:2;" />
-        <input type="number" min="0" step="0.01" data-expense-amount="${i}" placeholder="المبلغ" value="${item.amount}" style="width:100px;" />
-        <button type="button" class="sub-item-remove" data-remove-expense="${i}">✕</button>
-      </div>
-    `).join("");
+    var wrap = document.getElementById("expense-items-list");
+    wrap.innerHTML = draftExpenseItems.map(function (item, i) {
+      return "<div class=\"sub-item-row\">" +
+        "<select data-expense-category=\"" + i + "\" style=\"width:110px;\">" +
+          "<option value=\"purchase\"" + (item.category === "purchase" ? " selected" : "") + ">Purchase</option>" +
+          "<option value=\"rental\"" + (item.category === "rental" ? " selected" : "") + ">Rental</option>" +
+        "</select>" +
+        "<input type=\"text\" data-expense-desc=\"" + i + "\" placeholder=\"Description...\" value=\"" + item.description + "\" style=\"flex:2;\" />" +
+        "<input type=\"number\" min=\"0\" step=\"0.01\" data-expense-amount=\"" + i + "\" placeholder=\"Amount\" value=\"" + item.amount + "\" style=\"width:100px;\" />" +
+        "<button type=\"button\" class=\"sub-item-remove\" data-remove-expense=\"" + i + "\">X</button>" +
+      "</div>";
+    }).join("");
 
-    wrap.querySelectorAll("[data-expense-category]").forEach((el) => el.addEventListener("change", (e) => { draftExpenseItems[+el.dataset.expenseCategory].category = e.target.value; }));
-    wrap.querySelectorAll("[data-expense-desc]").forEach((el) => el.addEventListener("input", (e) => { draftExpenseItems[+el.dataset.expenseDesc].description = e.target.value; }));
-    wrap.querySelectorAll("[data-expense-amount]").forEach((el) => el.addEventListener("input", (e) => { draftExpenseItems[+el.dataset.expenseAmount].amount = Number(e.target.value) || 0; updateSpentTotal(); }));
-    wrap.querySelectorAll("[data-remove-expense]").forEach((el) => el.addEventListener("click", () => { draftExpenseItems.splice(+el.dataset.removeExpense, 1); renderExpenseItemsList(); updateSpentTotal(); }));
+    wrap.querySelectorAll("[data-expense-category]").forEach(function (el) {
+      el.addEventListener("change", function (e) { draftExpenseItems[+el.dataset.expenseCategory].category = e.target.value; });
+    });
+    wrap.querySelectorAll("[data-expense-desc]").forEach(function (el) {
+      el.addEventListener("input", function (e) { draftExpenseItems[+el.dataset.expenseDesc].description = e.target.value; });
+    });
+    wrap.querySelectorAll("[data-expense-amount]").forEach(function (el) {
+      el.addEventListener("input", function (e) { draftExpenseItems[+el.dataset.expenseAmount].amount = Number(e.target.value) || 0; updateSpentTotal(); });
+    });
+    wrap.querySelectorAll("[data-remove-expense]").forEach(function (el) {
+      el.addEventListener("click", function () { draftExpenseItems.splice(+el.dataset.removeExpense, 1); renderExpenseItemsList(); updateSpentTotal(); });
+    });
 
     updateSpentTotal();
   }
 
   function updateSpentTotal() {
-    const total = draftExpenseItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    var total = draftExpenseItems.reduce(function (sum, item) { return sum + (Number(item.amount) || 0); }, 0);
     document.getElementById("event-total-spent").textContent = fmtMoney(total);
   }
 
   function addExpenseItem() {
-    draftExpenseItems.push({ id: generateId("exp"), description: "", category: "purchase", amount: 0 });
+    draftExpenseItems.push({ description: "", category: "purchase", amount: 0 });
     renderExpenseItemsList();
   }
 
@@ -91,44 +129,61 @@
   // =========================================================================
 
   function renderCompaniesList() {
-    const wrap = document.getElementById("companies-list");
-    wrap.innerHTML = draftCompanies.map((c, i) => `
-      <div class="sub-item-row">
-        <input type="text" data-company-name="${i}" placeholder="اسم الشركة..." value="${c.name}" style="flex:1;" />
-        <button type="button" class="sub-item-remove" data-remove-company="${i}">✕</button>
-      </div>
-    `).join("");
-    wrap.querySelectorAll("[data-company-name]").forEach((el) => el.addEventListener("input", (e) => { draftCompanies[+el.dataset.companyName].name = e.target.value; }));
-    wrap.querySelectorAll("[data-remove-company]").forEach((el) => el.addEventListener("click", () => { draftCompanies.splice(+el.dataset.removeCompany, 1); renderCompaniesList(); }));
+    var wrap = document.getElementById("companies-list");
+    wrap.innerHTML = draftCompanies.map(function (c, i) {
+      return "<div class=\"sub-item-row\">" +
+        "<input type=\"text\" data-company-name=\"" + i + "\" placeholder=\"Company name...\" value=\"" + c.name + "\" style=\"flex:1;\" />" +
+        "<button type=\"button\" class=\"sub-item-remove\" data-remove-company=\"" + i + "\">X</button>" +
+      "</div>";
+    }).join("");
+    wrap.querySelectorAll("[data-company-name]").forEach(function (el) {
+      el.addEventListener("input", function (e) { draftCompanies[+el.dataset.companyName].name = e.target.value; });
+    });
+    wrap.querySelectorAll("[data-remove-company]").forEach(function (el) {
+      el.addEventListener("click", function () { draftCompanies.splice(+el.dataset.removeCompany, 1); renderCompaniesList(); });
+    });
   }
-  function addCompany() { draftCompanies.push({ id: generateId("co"), name: "" }); renderCompaniesList(); }
+  function addCompany() {
+    draftCompanies.push({ name: "" });
+    renderCompaniesList();
+  }
 
   // =========================================================================
   // Team sub-form
   // =========================================================================
 
   function renderTeamList() {
-    const wrap = document.getElementById("team-list");
-    wrap.innerHTML = draftTeam.map((t, i) => `
-      <div class="sub-item-row">
-        <input type="text" data-team-name="${i}" placeholder="الاسم..." value="${t.name}" style="flex:1;" />
-        <input type="text" data-team-role="${i}" placeholder="الوظيفة..." value="${t.role}" style="flex:1;" />
-        <button type="button" class="sub-item-remove" data-remove-team="${i}">✕</button>
-      </div>
-    `).join("");
-    wrap.querySelectorAll("[data-team-name]").forEach((el) => el.addEventListener("input", (e) => { draftTeam[+el.dataset.teamName].name = e.target.value; }));
-    wrap.querySelectorAll("[data-team-role]").forEach((el) => el.addEventListener("input", (e) => { draftTeam[+el.dataset.teamRole].role = e.target.value; }));
-    wrap.querySelectorAll("[data-remove-team]").forEach((el) => el.addEventListener("click", () => { draftTeam.splice(+el.dataset.removeTeam, 1); renderTeamList(); }));
+    var wrap = document.getElementById("team-list");
+    wrap.innerHTML = draftTeam.map(function (t, i) {
+      return "<div class=\"sub-item-row\">" +
+        "<input type=\"text\" data-team-name=\"" + i + "\" placeholder=\"Name...\" value=\"" + t.name + "\" style=\"flex:1;\" />" +
+        "<input type=\"text\" data-team-role=\"" + i + "\" placeholder=\"Role...\" value=\"" + t.role + "\" style=\"flex:1;\" />" +
+        "<button type=\"button\" class=\"sub-item-remove\" data-remove-team=\"" + i + "\">X</button>" +
+      "</div>";
+    }).join("");
+    wrap.querySelectorAll("[data-team-name]").forEach(function (el) {
+      el.addEventListener("input", function (e) { draftTeam[+el.dataset.teamName].name = e.target.value; });
+    });
+    wrap.querySelectorAll("[data-team-role]").forEach(function (el) {
+      el.addEventListener("input", function (e) { draftTeam[+el.dataset.teamRole].role = e.target.value; });
+    });
+    wrap.querySelectorAll("[data-remove-team]").forEach(function (el) {
+      el.addEventListener("click", function () { draftTeam.splice(+el.dataset.removeTeam, 1); renderTeamList(); });
+    });
   }
-  function addTeamMember() { draftTeam.push({ id: generateId("team"), name: "", role: "" }); renderTeamList(); }
+  function addTeamMember() {
+    draftTeam.push({ name: "", role: "" });
+    renderTeamList();
+  }
 
   // =========================================================================
-  // Add / Edit event
+  // Add / Edit modal
   // =========================================================================
 
   function openAddModal() {
+    editingId = null;
     document.getElementById("event-editing-id").value = "";
-    document.getElementById("event-modal-title").textContent = "إضافة فعالية جديدة";
+    document.getElementById("event-modal-title").textContent = "Add New Event";
     document.getElementById("event-location").value = "";
     document.getElementById("event-date").value = todayISO();
     document.getElementById("event-people-count").value = "0";
@@ -142,18 +197,19 @@
   }
 
   function openEditModal(id) {
-    const record = readEvents().find((r) => r.id === id);
-    if (!record) { alert("الفعالية لم تعد موجودة."); return; }
+    var record = allEvents.find(function (r) { return String(r.id) === String(id); });
+    if (!record) { alert("This event no longer exists."); return; }
 
+    editingId = id;
     document.getElementById("event-editing-id").value = record.id;
-    document.getElementById("event-modal-title").textContent = `تعديل: ${record.location}`;
+    document.getElementById("event-modal-title").textContent = "Edit: " + record.location;
     document.getElementById("event-location").value = record.location;
     document.getElementById("event-date").value = record.date;
-    document.getElementById("event-people-count").value = record.peopleCount;
+    document.getElementById("event-people-count").value = record.people_count;
 
-    draftExpenseItems = record.expenseItems.map((e) => ({ ...e }));
-    draftCompanies = record.companies.map((c) => ({ ...c }));
-    draftTeam = record.team.map((t) => ({ ...t }));
+    draftExpenseItems = record.expense_items.map(function (e) { return { description: e.description, category: e.category, amount: e.amount }; });
+    draftCompanies = record.companies.map(function (c) { return { name: c.name }; });
+    draftTeam = record.team.map(function (t) { return { name: t.name, role: t.role }; });
     renderExpenseItemsList();
     renderCompaniesList();
     renderTeamList();
@@ -161,62 +217,69 @@
     document.getElementById("modal-event-form").classList.add("is-open");
   }
 
-  function saveEvent() {
-    const location = document.getElementById("event-location").value.trim();
-    const date = document.getElementById("event-date").value;
-    const peopleCount = Number(document.getElementById("event-people-count").value) || 0;
-    const editingId = document.getElementById("event-editing-id").value;
+  async function saveEvent() {
+    var location = document.getElementById("event-location").value.trim();
+    var date = document.getElementById("event-date").value;
+    var peopleCount = Number(document.getElementById("event-people-count").value) || 0;
 
-    if (!location) { alert("مكان الفعالية مطلوب."); return; }
-    if (!date) { alert("تاريخ الفعالية مطلوب."); return; }
-    if (peopleCount < 0) { alert("عدد الأفراد لا يمكن أن يكون سالبًا."); return; }
+    if (!location) { alert("Location is required."); return; }
+    if (!date) { alert("Date is required."); return; }
+    if (peopleCount < 0) { alert("Headcount cannot be negative."); return; }
 
-    // Validate every expense item that has ANY content — an empty row
-    // (never touched) is silently dropped rather than rejected, but a
-    // partially-filled one (description without amount, etc.) is flagged.
-    const cleanedExpenseItems = [];
-    for (const item of draftExpenseItems) {
-      const hasAnyContent = item.description.trim() || item.amount > 0;
+    var cleanedExpenseItems = [];
+    for (var i = 0; i < draftExpenseItems.length; i++) {
+      var item = draftExpenseItems[i];
+      var hasAnyContent = item.description.trim() || item.amount > 0;
       if (!hasAnyContent) continue;
-      if (!item.description.trim()) { alert("كل بند صرف لازم يكون له بيان."); return; }
-      if (!(item.amount > 0)) { alert(`بند "${item.description}" — المبلغ لازم يكون أكبر من صفر.`); return; }
-      cleanedExpenseItems.push({ id: item.id, description: item.description.trim(), category: item.category, amount: item.amount });
+      if (!item.description.trim()) { alert("Every expense item needs a description."); return; }
+      if (!(item.amount > 0)) { alert("Item \"" + item.description + "\" - amount must be greater than zero."); return; }
+      cleanedExpenseItems.push({ description: item.description.trim(), category: item.category, amount: item.amount });
     }
 
-    const cleanedCompanies = draftCompanies.filter((c) => c.name.trim()).map((c) => ({ id: c.id, name: c.name.trim() }));
-    const cleanedTeam = draftTeam.filter((t) => t.name.trim() || t.role.trim());
-    for (const member of cleanedTeam) {
-      if (!member.name.trim()) { alert("كل عضو في الفريق لازم يكون له اسم."); return; }
+    var cleanedCompanies = draftCompanies.filter(function (c) { return c.name.trim(); }).map(function (c) { return { name: c.name.trim() }; });
+
+    var cleanedTeam = draftTeam.filter(function (t) { return t.name.trim() || t.role.trim(); });
+    for (var j = 0; j < cleanedTeam.length; j++) {
+      if (!cleanedTeam[j].name.trim()) { alert("Every team member needs a name."); return; }
     }
 
-    const totalSpent = Math.round(cleanedExpenseItems.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
+    var payload = {
+      location: location,
+      date: date,
+      people_count: peopleCount,
+      expense_items: cleanedExpenseItems,
+      companies: cleanedCompanies,
+      team: cleanedTeam,
+    };
 
-    const rows = readEvents();
-    if (editingId) {
-      const idx = rows.findIndex((r) => r.id === editingId);
-      if (idx === -1) { alert("الفعالية لم تعد موجودة."); return; }
-      rows[idx] = { ...rows[idx], location, date, peopleCount, expenseItems: cleanedExpenseItems, companies: cleanedCompanies, team: cleanedTeam, totalSpent };
-    } else {
-      rows.push({
-        id: generateId("event"), location, date, peopleCount,
-        expenseItems: cleanedExpenseItems, companies: cleanedCompanies, team: cleanedTeam,
-        totalSpent, createdAt: todayISO(),
-      });
-    }
-
-    if (writeEvents(rows)) {
-      document.getElementById("modal-event-form").classList.remove("is-open");
-      renderEventsTable();
+    var btn = document.getElementById("btn-save-event");
+    if (btn) btn.disabled = true;
+    try {
+      if (editingId) {
+        await VVApi.request(VV_CONFIG.ENDPOINTS.EVENT_DETAIL(editingId), { method: "PATCH", body: payload });
+      } else {
+        await VVApi.request(VV_CONFIG.ENDPOINTS.EVENTS, { method: "POST", body: payload });
+      }
+      closeModal("modal-event-form");
+      await loadEvents(document.getElementById("events-search").value);
+    } catch (err) {
+      alert(err.message || "Failed to save.");
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
-  function deleteEvent(id) {
-    const rows = readEvents();
-    const record = rows.find((r) => r.id === id);
-    if (!record) { alert("الفعالية لم تعد موجودة."); return; }
-    if (!confirm(`حذف فعالية "${record.location}" نهائيًا؟`)) return;
-    writeEvents(rows.filter((r) => r.id !== id));
-    renderEventsTable();
+  async function deleteEvent(id) {
+    var record = allEvents.find(function (r) { return String(r.id) === String(id); });
+    if (!record) { alert("This event no longer exists."); return; }
+    if (!confirm("Delete event \"" + record.location + "\" permanently?")) return;
+
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EVENT_DETAIL(id), { method: "DELETE" });
+      await loadEvents(document.getElementById("events-search").value);
+    } catch (err) {
+      alert(err.message || "Failed to delete.");
+    }
   }
 
   // =========================================================================
@@ -224,116 +287,91 @@
   // =========================================================================
 
   function viewEvent(id) {
-    const record = readEvents().find((r) => r.id === id);
-    if (!record) { alert("الفعالية لم تعد موجودة."); return; }
+    var record = allEvents.find(function (r) { return String(r.id) === String(id); });
+    if (!record) { alert("This event no longer exists."); return; }
+
+    var expenseRows = record.expense_items.map(function (e) {
+      return "<tr><td>" + (e.category === "purchase" ? "Purchase" : "Rental") + "</td><td>" + e.description + "</td><td class=\"num\">" + fmtMoney(e.amount) + "</td></tr>";
+    }).join("") || "<tr><td colspan=\"3\" style=\"text-align:center;color:var(--text-faint);\">No expense items</td></tr>";
+
+    var companiesText = record.companies.map(function (c) { return c.name; }).join(", ") || "-";
+
+    var teamHtml = record.team.length === 0
+      ? "<p style=\"font-size:12px;color:var(--text-faint);\">No team registered</p>"
+      : "<ul style=\"font-size:12.5px;padding-inline-start:18px;\">" + record.team.map(function (t) {
+          return "<li>" + t.name + " - " + (t.role || "No role specified") + "</li>";
+        }).join("") + "</ul>";
 
     document.getElementById("event-view-title").textContent = record.location;
-    const expenseRows = record.expenseItems.map((e) => `
-      <tr><td>${e.category === "purchase" ? "مشتريات" : "استئجار"}</td><td>${e.description}</td><td class="num">${fmtMoney(e.amount)}</td></tr>
-    `).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--text-faint);">لا توجد بنود صرف</td></tr>`;
+    document.getElementById("event-view-body").innerHTML =
+      "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px;margin-bottom:18px;\">" +
+        "<div><strong>Date:</strong> " + record.date + "</div>" +
+        "<div><strong>Headcount:</strong> " + record.people_count + "</div>" +
+        "<div><strong>Total Spent:</strong> " + fmtMoney(record.total_spent) + "</div>" +
+        "<div><strong>Participating Companies:</strong> " + companiesText + "</div>" +
+      "</div>" +
+      "<h4 style=\"font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:8px;\">Expense Details</h4>" +
+      "<table class=\"ledger\" style=\"min-width:0;width:100%;margin-bottom:18px;\">" +
+        "<thead><tr><th>Type</th><th>Description</th><th>Amount</th></tr></thead>" +
+        "<tbody>" + expenseRows + "</tbody>" +
+      "</table>" +
+      "<h4 style=\"font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:8px;\">Team Management</h4>" +
+      teamHtml;
 
-    document.getElementById("event-view-body").innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px;margin-bottom:18px;">
-        <div><strong>التاريخ:</strong> ${record.date}</div>
-        <div><strong>عدد الأفراد:</strong> ${record.peopleCount}</div>
-        <div><strong>إجمالي الصرف:</strong> ${fmtMoney(record.totalSpent)}</div>
-        <div><strong>الشركات المشاركة:</strong> ${record.companies.map((c) => c.name).join("، ") || "—"}</div>
-      </div>
-
-      <h4 style="font-family:'Cairo',sans-serif;font-weight:800;font-size:13px;margin-bottom:8px;">تفاصيل المصروفات</h4>
-      <table class="ledger" style="min-width:0;width:100%;margin-bottom:18px;">
-        <thead><tr><th>النوع</th><th>البيان</th><th>المبلغ</th></tr></thead>
-        <tbody>${expenseRows}</tbody>
-      </table>
-
-      <h4 style="font-family:'Cairo',sans-serif;font-weight:800;font-size:13px;margin-bottom:8px;">Team Management</h4>
-      ${record.team.length === 0
-        ? `<p style="font-size:12px;color:var(--text-faint);">لا يوجد فريق مسجّل</p>`
-        : `<ul style="font-size:12.5px;padding-inline-start:18px;">${record.team.map((t) => `<li>${t.name} — ${t.role || "بدون وظيفة محددة"}</li>`).join("")}</ul>`}
-    `;
     document.getElementById("modal-event-view").classList.add("is-open");
   }
 
   // =========================================================================
-  // Main table
-  // =========================================================================
-
-  function renderEventsTable() {
-    const query = (document.getElementById("events-search").value || "").trim().toLowerCase();
-    let rows = readEvents();
-    if (query) rows = rows.filter((r) => r.location.toLowerCase().includes(query));
-    rows = [...rows].sort((a, b) => (b.id > a.id ? 1 : -1));
-
-    const tbody = document.getElementById("events-table-body");
-    const table = document.getElementById("events-table");
-    const empty = document.getElementById("events-empty-state");
-
-    if (rows.length === 0) { table.style.display = "none"; empty.style.display = "block"; return; }
-    table.style.display = "table";
-    empty.style.display = "none";
-
-    tbody.innerHTML = rows.map((r) => `
-      <tr>
-        <td><strong>${r.location}</strong></td>
-        <td>${r.date}</td>
-        <td class="num">${fmtMoney(r.totalSpent)}</td>
-        <td>${r.peopleCount}</td>
-        <td>${r.companies.length}</td>
-        <td>${r.team.length}</td>
-        <td>
-          <button class="row-action-btn" data-view-event="${r.id}" title="عرض التفاصيل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></button>
-          <button class="row-action-btn" data-edit-event="${r.id}" title="تعديل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
-          <button class="row-action-btn is-danger" data-delete-event="${r.id}" title="حذف"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></button>
-        </td>
-      </tr>
-    `).join("");
-
-    tbody.querySelectorAll("[data-view-event]").forEach((b) => b.addEventListener("click", () => viewEvent(b.dataset.viewEvent)));
-    tbody.querySelectorAll("[data-edit-event]").forEach((b) => b.addEventListener("click", () => openEditModal(b.dataset.editEvent)));
-    tbody.querySelectorAll("[data-delete-event]").forEach((b) => b.addEventListener("click", () => deleteEvent(b.dataset.deleteEvent)));
-  }
-
-  // =========================================================================
-  // Export
+  // Export CSV
   // =========================================================================
 
   function csvEscape(value) {
-    const s = value === null || value === undefined ? "" : String(value);
-    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    var s = value === null || value === undefined ? "" : String(value);
+    return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
   }
 
   function exportEventsToCsv() {
-    const rows = readEvents();
-    if (rows.length === 0) { alert("لا توجد فعاليات لتصديرها."); return; }
-    const lines = [["المكان", "التاريخ", "إجمالي الصرف", "عدد الأفراد", "الشركات المشاركة", "حجم الفريق"].map(csvEscape).join(",")];
-    rows.forEach((r) => {
-      lines.push([r.location, r.date, r.totalSpent.toFixed(2), r.peopleCount, r.companies.map((c) => c.name).join(" / "), r.team.length].map(csvEscape).join(","));
+    if (allEvents.length === 0) { alert("No events to export."); return; }
+    var lines = [["Location", "Date", "Total Spent", "Headcount", "Companies", "Team Size"].map(csvEscape).join(",")];
+    allEvents.forEach(function (r) {
+      var companiesText = r.companies.map(function (c) { return c.name; }).join(" / ");
+      lines.push([r.location, r.date, Number(r.total_spent).toFixed(2), r.people_count, companiesText, r.team.length].map(csvEscape).join(","));
     });
-    const csv = "\uFEFF" + lines.join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    var csv = "\uFEFF" + lines.join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
     link.href = url;
-    link.download = `Voyvista-Events-${todayISO()}.csv`;
+    link.download = "Voyvista-Events-" + todayISO() + ".csv";
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll("[data-close-modal]").forEach((btn) => btn.addEventListener("click", () => document.getElementById(btn.dataset.closeModal)?.classList.remove("is-open")));
-    document.querySelectorAll(".vv-modal-overlay").forEach((overlay) => overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("is-open"); }));
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.querySelectorAll(".vv-modal-overlay.is-open").forEach((o) => o.classList.remove("is-open")); });
+  // =========================================================================
+  // Init
+  // =========================================================================
 
-    document.getElementById("btn-open-add-event").addEventListener("click", openAddModal);
-    document.getElementById("btn-save-event").addEventListener("click", saveEvent);
-    document.getElementById("events-search").addEventListener("input", renderEventsTable);
-    document.getElementById("btn-export-events-excel").addEventListener("click", exportEventsToCsv);
-    document.getElementById("btn-add-expense-item").addEventListener("click", addExpenseItem);
-    document.getElementById("btn-add-company").addEventListener("click", addCompany);
-    document.getElementById("btn-add-team-member").addEventListener("click", addTeamMember);
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
+      btn.addEventListener("click", function () { closeModal(btn.dataset.closeModal); });
+    });
+    document.querySelectorAll(".vv-modal-overlay").forEach(function (overlay) {
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.classList.remove("is-open"); });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") document.querySelectorAll(".vv-modal-overlay.is-open").forEach(function (o) { o.classList.remove("is-open"); });
+    });
 
-    renderEventsTable();
+    on("btn-open-add-event", "click", openAddModal);
+    on("btn-save-event", "click", saveEvent);
+    on("events-search", "input", function (e) { loadEvents(e.target.value); });
+    on("btn-export-events-csv", "click", exportEventsToCsv);
+    on("btn-add-expense-item", "click", addExpenseItem);
+    on("btn-add-company", "click", addCompany);
+    on("btn-add-team-member", "click", addTeamMember);
+
+    loadEvents();
   });
 })();

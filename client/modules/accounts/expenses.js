@@ -1,560 +1,728 @@
-/**
- * expenses.js — client/modules/accounts/ (المصروفات)
- * -----------------------------------------------------------------------
- * Registers into VVAccountsModules.expenses and self-wires its own
- * trigger button (`[data-view="expenses"]` or `#qa-expenses`).
- *
- * Payment method is one of three: نقدي (cash), بنكي (bank), عهدة (an
- * employee's open custody). Cash/Bank draw straight from
- * window.VVTreasury; عهدة draws from window.VVCustody instead — the
- * treasury was already debited when that custody was first issued, so
- * charging an expense against it must NOT touch the treasury again.
- *
- * Financial mutation — posting or reversing an expense — happens ONLY
- * from the VVChangeRequests Apply Handler below, never directly from a
- * button. draft -> submitted -> approved stay simple direct writes (no
- * financial effect); only approved -> posted, and reversing a posted
- * expense, go through window.VVChangeRequests, registered here as module
- * "expenses" with changeType "post" or "reverse" — same principles
- * already proven in vouchers.js/custody.js/journal_entries.js, adapted to
- * this file's own shape rather than copied literally.
- *
- * Data store: vv_expenses — [{ id, date, category, amount, paymentMethod,
- *   accountId, custodyId, invoiceNumber, description, attachment, status,
- *   isReversal, reversed, reversedBy, reversesExpenseId, reversalState }]
- *   paymentMethod: "Cash" | "Bank" | "Custody"
- *   status: "draft" | "submitted" | "approved" | "posting" | "posted"
- *     ("posting" is a transient Intent Marker, never a final state — see
- *     the Apply Handler below)
- * -----------------------------------------------------------------------
- */
-
 (function () {
   "use strict";
 
-  const CORE = window.VVAccountsCore;
-  const WF = window.VVWorkflow;
-
-  const CATEGORIES = ["إيجار", "رواتب", "كهرباء ومياه", "اتصالات وإنترنت", "صيانة", "دعاية وتسويق", "ضيافة", "أخرى"];
-
-  function readExpenses() { return CORE.readStore("vv_expenses", []); }
-  function writeExpenses(expenses) { CORE.writeStore("vv_expenses", expenses); }
-
-  const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-  // Date.now() alone has millisecond precision — two expenses created in
-  // quick succession could otherwise collide (confirmed directly
-  // elsewhere in this project). A random suffix makes an actual
-  // collision astronomically unlikely.
-  function generateExpenseId() {
-    return `ex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  function escapeHtml(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .split(String.fromCharCode(39)).join("&#039;");
   }
-
-  /**
-   * The ONLY place vv_expenses' financial effect is ever applied from —
-   * called exclusively from inside the registered Apply Handler below,
-   * never directly from a button. Validates everything BEFORE writing
-   * anything, and returns an explicit { success, reason } — never
-   * assumes VVTreasury.adjustBalance() itself reports success/failure
-   * (it doesn't; it always returns a number), and never assumes
-   * VVCustody.recordSpendAgainst()/reverseSpendAgainst() succeeded
-   * without checking their own { success, reason } result explicitly.
-   */
-  function applyExpenseEffect(expense, sign) {
-    if (!expense) return { success: false, reason: "المصروف غير موجود." };
-
-    const amount = Number(expense.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return { success: false, reason: `المبلغ غير صالح: "${expense.amount}" — يجب أن يكون رقمًا أكبر من صفر.` };
-    }
-    if (!expense.category) return { success: false, reason: "فئة المصروف مطلوبة." };
-    if (!expense.description || !String(expense.description).trim()) return { success: false, reason: "بيان المصروف مطلوب." };
-    if (sign !== 1 && sign !== -1) return { success: false, reason: `إشارة الأثر المالي غير صالحة: "${sign}".` };
-
-    if (expense.paymentMethod === "Custody") {
-      if (!expense.custodyId) return { success: false, reason: "معرف العهدة مفقود." };
-      if (!window.VVCustody) return { success: false, reason: "خدمة العهد (VVCustody) غير متاحة حاليًا." };
-
-      // Never assume this succeeded — custody.js's own contract is
-      // { success, reason } precisely so callers like this one can check.
-      const result = sign > 0
-        ? window.VVCustody.recordSpendAgainst(expense.custodyId, amount)
-        : window.VVCustody.reverseSpendAgainst(expense.custodyId, amount);
-      if (!result.success) return result; // propagate the real reason from custody.js verbatim
-
-      return { success: true };
-    }
-
-    if (expense.paymentMethod !== "Cash" && expense.paymentMethod !== "Bank") {
-      return { success: false, reason: `طريقة الدفع غير صالحة: "${expense.paymentMethod}".` };
-    }
-    if (!window.VVTreasury) return { success: false, reason: "خدمة الخزينة (VVTreasury) غير متاحة حاليًا." };
-
-    // VVTreasury.adjustBalance() itself never reports failure — it always
-    // returns a number, and silently creates an unrecognized "bank:X" id
-    // rather than rejecting it (confirmed directly by reading
-    // treasury.js). "Does this account actually exist" has to be checked
-    // HERE, against accountOptions()'s real list, before ever calling it.
-    const realAccountIds = window.VVTreasury.accountOptions().map((o) => o.id);
-    if (!expense.accountId || !realAccountIds.includes(expense.accountId)) {
-      return { success: false, reason: `الحساب المختار (${expense.accountId || "—"}) لم يعد موجودًا في الخزينة.` };
-    }
-
-    window.VVTreasury.adjustBalance(expense.accountId, -amount * sign);
-    return { success: true };
+  function fmtMoney(n) {
+    return (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+  function todayISO() { return new Date().toISOString().split("T")[0]; }
+  function openModal(id) { document.getElementById(id)?.classList.add("is-open"); }
+  function closeModal(id) { document.getElementById(id)?.classList.remove("is-open"); }
+  var readFileAsDataUrl = function (file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
-  // =========================================================================
-  // Main render
-  // =========================================================================
+  var STATUS_LABELS = { draft: "\u0645\u0633\u0648\u0651\u062F\u0629", submitted: "\u0645\u064F\u0642\u062F\u064E\u0651\u0645", approved: "\u0645\u0639\u062A\u0645\u062F", posted: "\u0645\u064F\u0631\u062D\u064E\u0651\u0644", settled: "\u0645\u0633\u0648\u0651\u0649" };
+  var NEXT_ACTION = { draft: "submit", submitted: "approve", approved: "post_expense" };
+  var NEXT_ACTION_LABEL = { draft: "\u0625\u0631\u0633\u0627\u0644", submitted: "\u0627\u0639\u062A\u0645\u0627\u062F", approved: "\u062A\u0631\u062D\u064A\u0644" };
+  var PAYMENT_METHOD_LABELS_AR = { cash: "\u0646\u0642\u062F\u064A", bank: "\u0628\u0646\u0643\u064A", custody: "\u0639\u0647\u062F\u0629" };
 
-  function renderExpensesModule() {
-    const body = document.getElementById("module-body");
-    body.innerHTML = `
-      <div style="background:var(--canvas); border:1px solid var(--border); border-radius:var(--radius-md); padding:18px; margin-bottom:20px;">
-        <h3 style="font-family:'Cairo',sans-serif; font-size:14px; font-weight:800; margin-bottom:14px;">إضافة مصروف</h3>
-        <div class="vv-field-row">
-          <div class="vv-field"><label>التاريخ</label><input type="date" id="ex-date" /></div>
-          <div class="vv-field"><label>الفئة</label>
-            <select id="ex-category">${CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join("")}</select>
-          </div>
-        </div>
-        <div class="vv-field-row">
-          <div class="vv-field"><label>المبلغ</label><input type="number" min="0" step="0.01" id="ex-amount" value="0" /></div>
-          <div class="vv-field"><label>رقم الفاتورة / المستند</label><input type="text" id="ex-invoice-number" placeholder="اختياري" /></div>
-        </div>
-        <div class="vv-field-row">
-          <div class="vv-field"><label>طريقة الدفع</label>
-            <select id="ex-payment-method">
-              <option value="Cash">نقدي</option>
-              <option value="Bank">بنكي</option>
-              <option value="Custody">عهدة</option>
-            </select>
-          </div>
-          <div class="vv-field" id="ex-account-field"><label>الخزينة / البنك</label><select id="ex-account"></select></div>
-          <div class="vv-field" id="ex-custody-field" style="display:none;"><label>عهدة الموظف</label><select id="ex-custody"></select></div>
-        </div>
-        <div class="vv-field"><label>البيان</label><input type="text" id="ex-description" placeholder="وصف المصروف..." /></div>
-        <div class="vv-field">
-          <label>مرفق (إيصال/فاتورة)</label>
-          <input type="file" id="ex-attachment" accept="image/*,application/pdf" />
-          <div id="ex-attachment-name" style="font-size:11px;color:var(--text-faint);margin-top:4px;"></div>
-        </div>
-        <button class="btn btn--primary" id="btn-save-expense" type="button">حفظ المصروف (كمسوّدة)</button>
-      </div>
+  var accountsCache = [];
+  var expensesCache = [];
+  var custodyCache = [];
+  var employeesCache = [];
+  var templatesCache = [];
+  var pendingAttachment = null;
+  var payrollRowCounter = 0;
 
-      <div class="table-controls" style="margin-bottom:14px;">
-        <div class="search-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="expense-search" placeholder="بحث بالفئة أو البيان..." />
-        </div>
-        <select id="expense-category-filter" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12.5px;">
-          <option value="">كل الفئات</option>
-          ${CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join("")}
-        </select>
-      </div>
+  document.addEventListener("DOMContentLoaded", function () {
+    loadAccounts();
+    loadEmployees();
+    loadExpenses();
+    loadCustody();
+    loadTemplates();
 
-      <div class="ledger-scroll">
-        <table class="acc-table" id="expenses-table">
-          <thead><tr><th>التاريخ</th><th>الفئة</th><th>البيان</th><th>المبلغ</th><th>طريقة الدفع</th><th>رقم المستند</th><th>مرفق</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
-          <tbody id="expenses-table-body"></tbody>
-        </table>
-      </div>
-      <div class="empty-state" id="expenses-empty-state" style="display:none;"><p>لا توجد مصروفات مسجّلة بعد</p></div>
-    `;
-
-    document.getElementById("ex-date").value = CORE.todayISO();
-
-    function refreshAccountOptions() {
-      if (window.VVTreasury) {
-        document.getElementById("ex-account").innerHTML = window.VVTreasury.accountOptions()
-          .map((o) => `<option value="${o.id}">${o.label}</option>`).join("");
-      }
-    }
-    function refreshCustodyOptions() {
-      const select = document.getElementById("ex-custody");
-      const openRecords = window.VVCustody ? window.VVCustody.getOpenRecords() : [];
-      if (openRecords.length === 0) {
-        select.innerHTML = `<option value="">-- لا توجد عُهد مفتوحة --</option>`;
-        return;
-      }
-      select.innerHTML = openRecords.map((c) => {
-        const remaining = Math.round((c.amount - c.spent) * 100) / 100;
-        return `<option value="${c.id}">${c.employee} — متبقي ${remaining.toFixed(2)}</option>`;
-      }).join("");
-    }
-    refreshAccountOptions();
-    refreshCustodyOptions();
-
-    document.getElementById("ex-payment-method").addEventListener("change", (e) => {
-      const isCustody = e.target.value === "Custody";
-      document.getElementById("ex-account-field").style.display = isCustody ? "none" : "block";
-      document.getElementById("ex-custody-field").style.display = isCustody ? "block" : "none";
-      if (isCustody) refreshCustodyOptions();
+    document.querySelectorAll("[data-tab]").forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        document.querySelectorAll("[data-tab]").forEach(function (t) { t.classList.remove("is-active"); });
+        document.querySelectorAll(".tab-view").forEach(function (v) { v.classList.remove("is-active"); });
+        tab.classList.add("is-active");
+        document.getElementById("tab-" + tab.dataset.tab).classList.add("is-active");
+      });
     });
 
-    let pendingAttachment = null;
-    document.getElementById("ex-attachment").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
+    document.getElementById("btn-open-add-expense")?.addEventListener("click", function () { openModal("modal-add-expense"); resetExpenseForm(); });
+    document.getElementById("btn-open-add-custody")?.addEventListener("click", function () { openModal("modal-add-custody"); resetCustodyForm(); });
+    document.getElementById("btn-open-add-template")?.addEventListener("click", function () { openModal("modal-add-template"); resetTemplateForm(); });
+    document.getElementById("btn-save-expense-draft")?.addEventListener("click", function () { saveExpense(false); });
+    document.getElementById("btn-confirm-post-expense")?.addEventListener("click", function () { saveExpense(true); });
+    document.getElementById("btn-save-custody")?.addEventListener("click", saveCustody);
+    document.getElementById("btn-save-template")?.addEventListener("click", saveTemplate);
+    document.getElementById("btn-post-month")?.addEventListener("click", postMonth);
+    document.getElementById("btn-add-payroll-row")?.addEventListener("click", addPayrollRow);
+    document.getElementById("btn-post-payroll")?.addEventListener("click", postPayroll);
+    document.getElementById("expense-search")?.addEventListener("input", renderExpensesTable);
+    document.getElementById("expense-filter-date")?.addEventListener("change", renderExpensesTable);
+    document.getElementById("custody-search")?.addEventListener("input", renderCustodyTable);
+    document.getElementById("ex-payment-method")?.addEventListener("change", toggleExpenseAccountFields);
+    document.getElementById("btn-export-expenses")?.addEventListener("click", exportExpensesCsv);
+
+    document.getElementById("ex-attachment")?.addEventListener("change", async function (e) {
+      var file = e.target.files[0];
       if (!file) { pendingAttachment = null; return; }
       try {
-        pendingAttachment = { name: file.name, dataUrl: await readFileAsDataUrl(file) };
-        document.getElementById("ex-attachment-name").textContent = `تم إرفاق: ${file.name}`;
+        var dataUrl = await readFileAsDataUrl(file);
+        pendingAttachment = { name: file.name, dataUrl: dataUrl };
+        document.getElementById("ex-attachment-preview").innerHTML = "\uD83D\uDCCE " + escapeHtml(file.name);
       } catch (err) {
-        console.error(err);
         pendingAttachment = null;
       }
     });
 
-    document.getElementById("btn-save-expense").addEventListener("click", () => {
-      const amount = Number(document.getElementById("ex-amount").value) || 0;
-      const description = document.getElementById("ex-description").value.trim();
-      const paymentMethod = document.getElementById("ex-payment-method").value;
-
-      if (amount <= 0) { alert("المبلغ لازم يكون أكبر من صفر."); return; }
-      if (!description) { alert("البيان مطلوب."); return; }
-
-      let accountId = null, custodyId = null;
-      if (paymentMethod === "Custody") {
-        custodyId = document.getElementById("ex-custody").value;
-        if (!custodyId) { alert("اختار عهدة موظف مفتوحة، أو غيّر طريقة الدفع."); return; }
-        const openRecords = window.VVCustody ? window.VVCustody.getOpenRecords() : [];
-        const record = openRecords.find((c) => c.id === custodyId);
-        const remaining = record ? record.amount - record.spent : 0;
-        if (amount > remaining) { alert(`المبلغ أكبر من المتبقي في هذه العهدة (${remaining.toFixed(2)}).`); return; }
-      } else {
-        accountId = document.getElementById("ex-account").value;
-      }
-
-      const expenses = readExpenses();
-      expenses.push({
-        id: generateExpenseId(),
-        date: document.getElementById("ex-date").value || CORE.todayISO(),
-        category: document.getElementById("ex-category").value,
-        amount,
-        paymentMethod,
-        accountId,
-        custodyId,
-        invoiceNumber: document.getElementById("ex-invoice-number").value.trim(),
-        description,
-        attachment: pendingAttachment,
-        status: "draft",
-        isReversal: false,
-        reversed: false,
-        reversedBy: null,
-        reversesExpenseId: null,
-        reversalState: null,
-      });
-      writeExpenses(expenses);
-
-      document.getElementById("ex-amount").value = "0";
-      document.getElementById("ex-description").value = "";
-      document.getElementById("ex-invoice-number").value = "";
-      document.getElementById("ex-attachment").value = "";
-      document.getElementById("ex-attachment-name").textContent = "";
-      pendingAttachment = null;
-
-      renderExpensesTable();
+    document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
+      btn.addEventListener("click", function () { closeModal(btn.getAttribute("data-close-modal")); });
     });
+    document.querySelectorAll(".vv-modal-overlay").forEach(function (overlay) {
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.classList.remove("is-open"); });
+    });
+  });
 
-    document.getElementById("expense-search").addEventListener("input", renderExpensesTable);
-    document.getElementById("expense-category-filter").addEventListener("change", renderExpensesTable);
-    renderExpensesTable();
+  // =========================================================================
+  // Shared lookups
+  // =========================================================================
+
+  async function loadAccounts() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
+      accountsCache = result.data.results || result.data;
+      populateAccountSelects();
+    } catch (err) { /* silent */ }
   }
 
-  const PAYMENT_METHOD_LABELS = { Cash: "نقدي", Bank: "بنكي", Custody: "عهدة" };
+  async function loadEmployees() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEES);
+      employeesCache = result.data.results || result.data;
+      var select = document.getElementById("cu-employee");
+      if (select) select.innerHTML = employeesCache.map(function (e) { return "<option value=\"" + e.id + "\">" + escapeHtml(e.full_name) + "</option>"; }).join("");
+    } catch (err) { /* silent */ }
+  }
+
+  function populateAccountSelects() {
+    var treasuryAccounts = accountsCache.filter(function (a) { return a.type === "asset"; });
+    var expenseAccounts = accountsCache.filter(function (a) { return a.type === "expense"; });
+    var options = function (list) { return list.map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; }).join(""); };
+
+    ["ex-treasury-account", "cu-treasury-account", "tpl-treasury-account", "payroll-treasury-account"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = options(treasuryAccounts);
+    });
+    ["ex-expense-account", "tpl-expense-account", "payroll-expense-account"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = options(expenseAccounts);
+    });
+    var cuCustody = document.getElementById("cu-custody-account");
+    if (cuCustody) cuCustody.innerHTML = options(treasuryAccounts);
+    var exVat = document.getElementById("ex-vat-account");
+    if (exVat) exVat.innerHTML = "<option value=\"\">-- \u0628\u062F\u0648\u0646 --</option>" + options(treasuryAccounts);
+  }
+
+  function toggleExpenseAccountFields() {
+    var method = document.getElementById("ex-payment-method").value;
+    var isCustody = method === "custody";
+    document.getElementById("ex-treasury-field").style.display = isCustody ? "none" : "flex";
+    document.getElementById("ex-custody-field").style.display = isCustody ? "flex" : "none";
+    if (isCustody) {
+      var openCustody = custodyCache.filter(function (c) { return c.status === "posted"; });
+      var select = document.getElementById("ex-custody");
+      select.innerHTML = openCustody.length
+        ? openCustody.map(function (c) { return "<option value=\"" + c.id + "\">" + escapeHtml(c.number) + " -- " + escapeHtml(c.employee_name) + "</option>"; }).join("")
+        : "<option value=\"\">-- \u0644\u0627 \u062A\u0648\u062C\u062F \u0639\u064F\u0647\u062F \u0645\u0641\u062A\u0648\u062D\u0629 --</option>";
+    }
+  }
+
+  // =========================================================================
+  // KPI Cards
+  // =========================================================================
+
+  function renderKpiCards() {
+    var now = new Date();
+    var monthPrefix = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+    var thisMonthTotal = expensesCache
+      .filter(function (e) { return e.status === "posted" && (e.date || "").startsWith(monthPrefix); })
+      .reduce(function (sum, e) { return sum + Number(e.amount); }, 0);
+
+    var openCustody = custodyCache.filter(function (c) { return c.status === "posted"; });
+    var todayStr = todayISO();
+    var overdueCount = openCustody.filter(function (c) { return c.due_date && c.due_date < todayStr; }).length;
+
+    var cards = [
+      { label: "\u0625\u062C\u0645\u0627\u0644\u064A \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u062D\u0627\u0644\u064A", value: fmtMoney(thisMonthTotal) },
+      { label: "\u0639\u064F\u0647\u062F \u0645\u0641\u062A\u0648\u062D\u0629 \u063A\u064A\u0631 \u0645\u0635\u0641\u0627\u0629", value: String(openCustody.length) },
+      { label: "\u0639\u064F\u0647\u062F \u0645\u062A\u0623\u062E\u0631\u0629 \u0639\u0646 \u0627\u0644\u062A\u0635\u0641\u064A\u0629", value: String(overdueCount), warning: overdueCount > 0 },
+    ];
+
+    document.getElementById("kpi-grid").innerHTML = cards.map(function (c) {
+      return "<div class=\"kpi-card\"><div class=\"kpi-card__label\">" + c.label + "</div><div class=\"kpi-card__value" + (c.warning ? " is-warning" : "") + "\">" + c.value + "</div></div>";
+    }).join("");
+  }
+
+  // =========================================================================
+  // Ad-hoc Expenses
+  // =========================================================================
+
+  async function loadExpenses() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSES_ACC);
+      expensesCache = result.data.results || result.data;
+    } catch (err) { expensesCache = []; }
+    renderExpensesTable();
+    renderKpiCards();
+  }
 
   function renderExpensesTable() {
-    const query = (document.getElementById("expense-search").value || "").trim().toLowerCase();
-    const categoryFilter = document.getElementById("expense-category-filter").value;
+    var query = (document.getElementById("expense-search").value || "").trim().toLowerCase();
+    var dateFilter = document.getElementById("expense-filter-date").value;
+    var rows = expensesCache.filter(function (e) {
+      var matchesQuery = !query || (e.category || "").toLowerCase().includes(query) || (e.description || "").toLowerCase().includes(query);
+      var matchesDate = !dateFilter || e.date === dateFilter;
+      return matchesQuery && matchesDate;
+    });
 
-    let rows = [...readExpenses()];
-    if (query) rows = rows.filter((e) => e.category.toLowerCase().includes(query) || e.description.toLowerCase().includes(query));
-    if (categoryFilter) rows = rows.filter((e) => e.category === categoryFilter);
-    rows.sort((a, b) => (b.id > a.id ? 1 : -1));
-
-    const tbody = document.getElementById("expenses-table-body");
-    const table = document.getElementById("expenses-table");
-    const empty = document.getElementById("expenses-empty-state");
+    var tbody = document.getElementById("expenses-table-body");
+    var table = document.getElementById("expenses-table");
+    var empty = document.getElementById("expenses-empty");
 
     if (rows.length === 0) { table.style.display = "none"; empty.style.display = "block"; return; }
     table.style.display = "table";
     empty.style.display = "none";
 
-    tbody.innerHTML = rows.map((e) => `
-      <tr>
-        <td>${e.date}</td>
-        <td>${e.category}</td>
-        <td>${e.description}</td>
-        <td class="num amount-out">${CORE.formatMoney(e.amount)}</td>
-        <td>${PAYMENT_METHOD_LABELS[e.paymentMethod] || e.paymentMethod}</td>
-        <td class="mono">${e.invoiceNumber || "-"}</td>
-        <td>${e.attachment ? `<a href="#" data-open-attachment="${e.id}" style="text-decoration:underline;">📎 ${e.attachment.name}</a>` : "—"}</td>
-        <td>${WF.badgeHtml(e.status)}</td>
-        <td>${(e.status === "posting" || e.reversalState === "in_progress") ? `<span class="badge badge--pending" title="عملية سابقة لم تكتمل — يحتاج مراجعة يدوية">⚠️ يحتاج مراجعة</span>` : WF.actionsHtml(e, { allowReverse: true })}</td>
-      </tr>`).join("");
+    tbody.innerHTML = rows.map(function (e) {
+      return "<tr>" +
+        "<td>" + escapeHtml(e.date) + "</td>" +
+        "<td>" + escapeHtml(e.category) + "</td>" +
+        "<td>" + escapeHtml(e.description) + "</td>" +
+        "<td>" + escapeHtml(e.booking_reference || "-") + "</td>" +
+        "<td class=\"num\">" + fmtMoney(e.amount) + " " + escapeHtml(e.currency || "EGP") + "</td>" +
+        "<td>" + (PAYMENT_METHOD_LABELS_AR[e.payment_method] || escapeHtml(e.payment_method)) + "</td>" +
+        "<td>" + (e.attachment_name ? "<a href=\"#\" data-view-attachment=\"" + e.id + "\">\uD83D\uDCCE " + escapeHtml(e.attachment_name) + "</a>" : "\u2014") + "</td>" +
+        "<td><span class=\"status-badge status-badge--" + e.status + "\">" + STATUS_LABELS[e.status] + "</span></td>" +
+        "<td>" + expenseActionsHtml(e) + "</td>" +
+      "</tr>";
+    }).join("");
 
-    tbody.querySelectorAll("[data-open-attachment]").forEach((link) => {
-      link.addEventListener("click", (evt) => {
+    wireExpenseActions();
+  }
+
+  function expenseActionsHtml(e) {
+    var html = "";
+    if (e.status === "draft") {
+      html += "<button class=\"btn-confirm-post\" data-expense-confirm-post=\"" + e.id + "\">\u062A\u0623\u0643\u064A\u062F \u0648\u0635\u0631\u0641 \u0641\u0648\u0631\u064B\u0627</button>";
+    }
+    var nextAction = NEXT_ACTION[e.status];
+    if (nextAction) {
+      html += "<button class=\"btn-workflow-next\" data-expense-advance=\"" + e.id + "\" data-action=\"" + nextAction + "\">" + NEXT_ACTION_LABEL[e.status] + "</button>";
+    }
+    if (e.status === "draft") {
+      html += "<button class=\"row-action-btn is-danger\" data-expense-delete=\"" + e.id + "\" title=\"\u062D\u0630\u0641\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button>";
+    }
+    if (e.status === "posted") {
+      html += "<button class=\"row-action-btn\" data-expense-reverse=\"" + e.id + "\" title=\"\u0639\u0643\u0633\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 7v6h6\"/><path d=\"M3 13a9 9 0 1 0 3-6.7L3 9\"/></svg></button>";
+    }
+    return html;
+  }
+
+  function wireExpenseActions() {
+    document.querySelectorAll("[data-expense-advance]").forEach(function (btn) {
+      btn.addEventListener("click", function () { advanceExpense(btn.dataset.expenseAdvance, btn.dataset.action); });
+    });
+    document.querySelectorAll("[data-expense-confirm-post]").forEach(function (btn) {
+      btn.addEventListener("click", function () { confirmPostExisting(btn.dataset.expenseConfirmPost); });
+    });
+    document.querySelectorAll("[data-expense-delete]").forEach(function (btn) {
+      btn.addEventListener("click", function () { deleteExpense(btn.dataset.expenseDelete); });
+    });
+    document.querySelectorAll("[data-expense-reverse]").forEach(function (btn) {
+      btn.addEventListener("click", function () { reverseExpense(btn.dataset.expenseReverse); });
+    });
+    document.querySelectorAll("[data-view-attachment]").forEach(function (link) {
+      link.addEventListener("click", function (evt) {
         evt.preventDefault();
-        const expense = readExpenses().find((e) => e.id === link.dataset.openAttachment);
-        if (expense && expense.attachment) window.open(expense.attachment.dataUrl, "_blank");
+        var expense = expensesCache.find(function (e) { return String(e.id) === link.dataset.viewAttachment; });
+        if (expense && expense.attachment_data) window.open(expense.attachment_data, "_blank");
+      });
+    });
+  }
+
+  async function advanceExpense(id, action) {
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSE_DETAIL(id) + action + "/", { method: "POST" });
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0645\u0635\u0631\u0648\u0641.");
+    }
+  }
+
+  async function confirmPostExisting(id) {
+    if (!confirm("\u062A\u0623\u0643\u064A\u062F \u0648\u0635\u0631\u0641 \u0647\u0630\u0627 \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0641\u0648\u0631\u064B\u0627\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSE_DETAIL(id) + "confirm_and_post/", { method: "POST" });
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0635\u0631\u0641.");
+    }
+  }
+
+  async function deleteExpense(id) {
+    if (!confirm("\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0645\u0633\u0648\u0651\u062F\u0629 \u0646\u0647\u0627\u0626\u064A\u064B\u0627\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSE_DETAIL(id), { method: "DELETE" });
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u0635\u0631\u0648\u0641.");
+    }
+  }
+
+  async function reverseExpense(id) {
+    if (!confirm("\u0639\u0643\u0633 \u0647\u0630\u0627 \u0627\u0644\u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0645\u064F\u0631\u062D\u064E\u0651\u0644\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSE_DETAIL(id) + "reverse/", { method: "POST" });
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0639\u0643\u0633 \u0627\u0644\u0645\u0635\u0631\u0648\u0641.");
+    }
+  }
+
+  function resetExpenseForm() {
+    document.getElementById("ex-date").value = todayISO();
+    document.getElementById("ex-category").value = "";
+    document.getElementById("ex-amount").value = "0";
+    document.getElementById("ex-currency").value = "EGP";
+    document.getElementById("ex-exchange-rate").value = "1";
+    document.getElementById("ex-invoice-number").value = "";
+    document.getElementById("ex-booking-ref").value = "";
+    document.getElementById("ex-payment-method").value = "cash";
+    document.getElementById("ex-vat-amount").value = "0";
+    document.getElementById("ex-vat-account").value = "";
+    document.getElementById("ex-description").value = "";
+    document.getElementById("ex-attachment").value = "";
+    document.getElementById("ex-attachment-preview").innerHTML = "";
+    pendingAttachment = null;
+    toggleExpenseAccountFields();
+  }
+
+  async function saveExpense(confirmAndPost) {
+    var paymentMethod = document.getElementById("ex-payment-method").value;
+    var payload = {
+      date: document.getElementById("ex-date").value,
+      category: document.getElementById("ex-category").value.trim(),
+      amount: document.getElementById("ex-amount").value,
+      currency: document.getElementById("ex-currency").value,
+      exchange_rate: document.getElementById("ex-exchange-rate").value,
+      payment_method: paymentMethod,
+      expense_account: document.getElementById("ex-expense-account").value,
+      invoice_number: document.getElementById("ex-invoice-number").value.trim(),
+      booking_reference: document.getElementById("ex-booking-ref").value.trim(),
+      description: document.getElementById("ex-description").value.trim(),
+      vat_amount: document.getElementById("ex-vat-amount").value || "0",
+    };
+    var vatAccount = document.getElementById("ex-vat-account").value;
+    if (vatAccount) payload.vat_account = vatAccount;
+    if (paymentMethod === "custody") {
+      payload.custody = document.getElementById("ex-custody").value;
+    } else {
+      payload.treasury_account = document.getElementById("ex-treasury-account").value;
+    }
+    if (pendingAttachment) {
+      payload.attachment_name = pendingAttachment.name;
+      payload.attachment_data = pendingAttachment.dataUrl;
+    }
+
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSES_ACC, { method: "POST", body: payload });
+      if (confirmAndPost) {
+        await VVApi.request(VV_CONFIG.ENDPOINTS.EXPENSE_DETAIL(result.data.id) + "confirm_and_post/", { method: "POST" });
+      }
+      closeModal("modal-add-expense");
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u0645\u0635\u0631\u0648\u0641.");
+    }
+  }
+
+  // =========================================================================
+  // Recurring Expense Templates
+  // =========================================================================
+
+  async function loadTemplates() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES + "?active_only=true");
+      templatesCache = result.data.results || result.data;
+    } catch (err) { templatesCache = []; }
+    renderTemplatesTable();
+  }
+
+  function renderTemplatesTable() {
+    var tbody = document.getElementById("recurring-table-body");
+    var table = document.getElementById("recurring-table");
+    var empty = document.getElementById("recurring-empty");
+
+    if (templatesCache.length === 0) { table.style.display = "none"; empty.style.display = "block"; return; }
+    table.style.display = "table";
+    empty.style.display = "none";
+
+    tbody.innerHTML = templatesCache.map(function (t) {
+      return "<tr>" +
+        "<td>" + escapeHtml(t.name) + "</td>" +
+        "<td>" + escapeHtml(t.category) + "</td>" +
+        "<td class=\"num\"><input type=\"number\" min=\"0\" step=\"0.01\" class=\"inline-amount\" data-template-amount=\"" + t.id + "\" value=\"" + t.default_amount + "\" /></td>" +
+        "<td>" + escapeHtml(t.treasury_account_name) + "</td>" +
+        "<td><span class=\"status-badge status-badge--posted\">\u0646\u0634\u0637</span></td>" +
+        "<td><button class=\"btn-workflow-next\" data-template-post=\"" + t.id + "\">\u0635\u0631\u0641</button><button class=\"row-action-btn is-danger\" data-template-deactivate=\"" + t.id + "\" title=\"\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0628\u0646\u062F\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button></td>" +
+      "</tr>";
+    }).join("");
+
+    document.querySelectorAll("[data-template-post]").forEach(function (btn) {
+      btn.addEventListener("click", function () { postSingleTemplate(btn.dataset.templatePost); });
+    });
+    document.querySelectorAll("[data-template-deactivate]").forEach(function (btn) {
+      btn.addEventListener("click", function () { deactivateTemplate(btn.dataset.templateDeactivate); });
+    });
+  }
+
+  async function postSingleTemplate(id) {
+    var template = templatesCache.find(function (t) { return String(t.id) === id; });
+    if (!template) return;
+    var input = document.querySelector("[data-template-amount=\"" + id + "\"]");
+    var amount = input ? input.value : template.default_amount;
+
+    if (!confirm("\u0635\u0631\u0641 \u0628\u0646\u062F \"" + template.name + "\" \u0628\u0642\u064A\u0645\u0629 " + fmtMoney(amount) + "\u061F")) return;
+
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES + "post_month/", {
+        method: "POST", body: { lines: [{ template_id: template.id, amount: amount, date: todayISO() }] },
+      });
+      await loadExpenses();
+      alert("\u062A\u0645 \u0635\u0631\u0641 \"" + template.name + "\" \u0628\u0646\u062C\u0627\u062D.");
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0635\u0631\u0641 \u0627\u0644\u0628\u0646\u062F.");
+    }
+  }
+
+  async function deactivateTemplate(id) {
+    if (!confirm("\u0625\u064A\u0642\u0627\u0641 \u0647\u0630\u0627 \u0627\u0644\u0628\u0646\u062F \u0627\u0644\u062B\u0627\u0628\u062A\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSE_DETAIL(id), { method: "PATCH", body: { is_active: false } });
+      await loadTemplates();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0628\u0646\u062F.");
+    }
+  }
+
+  function resetTemplateForm() {
+    document.getElementById("tpl-name").value = "";
+    document.getElementById("tpl-category").value = "";
+    document.getElementById("tpl-amount").value = "0";
+  }
+
+  async function saveTemplate() {
+    var payload = {
+      name: document.getElementById("tpl-name").value.trim(),
+      category: document.getElementById("tpl-category").value.trim(),
+      default_amount: document.getElementById("tpl-amount").value,
+      treasury_account: document.getElementById("tpl-treasury-account").value,
+      expense_account: document.getElementById("tpl-expense-account").value,
+    };
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES, { method: "POST", body: payload });
+      closeModal("modal-add-template");
+      await loadTemplates();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u0628\u0646\u062F.");
+    }
+  }
+
+  async function postMonth() {
+    if (templatesCache.length === 0) { alert("\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u0646\u0648\u062F \u062B\u0627\u0628\u062A\u0629 \u0644\u0635\u0631\u0641\u0647\u0627."); return; }
+    if (!confirm("\u0635\u0631\u0641 \u0648\u0627\u0639\u062A\u0645\u0627\u062F \u0643\u0644 \u0627\u0644\u0628\u0646\u0648\u062F \u062F\u0641\u0639\u0629 \u0648\u0627\u062D\u062F\u0629\u061F")) return;
+
+    var lines = templatesCache.map(function (t) {
+      var input = document.querySelector("[data-template-amount=\"" + t.id + "\"]");
+      return { template_id: t.id, amount: input ? input.value : t.default_amount, date: todayISO() };
+    });
+
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES + "post_month/", { method: "POST", body: { lines: lines } });
+      alert("\u062A\u0645 \u0635\u0631\u0641 " + result.data.posted_count + " \u0628\u0646\u062F \u0628\u0646\u062C\u0627\u062D.");
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0635\u0631\u0641 \u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0634\u0647\u0631.");
+    }
+  }
+
+  // =========================================================================
+  // Payroll
+  // =========================================================================
+
+  function addPayrollRow() {
+    payrollRowCounter++;
+    var rowId = "pr-" + payrollRowCounter;
+    var tbody = document.getElementById("payroll-table-body");
+    var row = document.createElement("tr");
+    row.dataset.payrollRow = rowId;
+    var employeeOptions = "<option value=\"\">-- \u0627\u062E\u062A\u0631 \u0645\u0648\u0638\u0641 --</option>" + employeesCache.map(function (e) {
+      return "<option value=\"" + e.id + "\" data-dept=\"" + escapeHtml(e.department || "") + "\">" + escapeHtml(e.full_name) + "</option>";
+    }).join("");
+    row.innerHTML =
+      "<td><select class=\"filter-select\" style=\"width:170px;\" data-payroll-employee=\"" + rowId + "\">" + employeeOptions + "</select></td>" +
+      "<td data-payroll-dept=\"" + rowId + "\">-</td>" +
+      "<td class=\"num\"><input type=\"number\" min=\"0\" step=\"0.01\" class=\"inline-amount\" value=\"0\" data-payroll-salary=\"" + rowId + "\" /></td>" +
+      "<td class=\"num\"><input type=\"number\" min=\"0\" step=\"0.01\" class=\"inline-amount\" value=\"0\" data-payroll-deduction=\"" + rowId + "\" /></td>" +
+      "<td class=\"num\" data-payroll-net=\"" + rowId + "\">0.00</td>" +
+      "<td><button class=\"row-action-btn is-danger\" data-payroll-remove=\"" + rowId + "\" title=\"\u062D\u0630\u0641\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button></td>";
+    tbody.appendChild(row);
+
+    row.querySelector("[data-payroll-employee]").addEventListener("change", function (e) {
+      var selected = e.target.options[e.target.selectedIndex];
+      var dept = selected ? selected.dataset.dept : "";
+      row.querySelector("[data-payroll-dept]").textContent = dept || "-";
+    });
+    row.querySelectorAll("[data-payroll-salary], [data-payroll-deduction]").forEach(function (input) {
+      input.addEventListener("input", updatePayrollTotals);
+    });
+    row.querySelector("[data-payroll-remove]").addEventListener("click", function () {
+      row.remove();
+      updatePayrollTotals();
+    });
+  }
+
+  function updatePayrollTotals() {
+    var total = 0;
+    document.querySelectorAll("#payroll-table-body tr").forEach(function (row) {
+      var rowId = row.dataset.payrollRow;
+      var salary = Number(document.querySelector("[data-payroll-salary=\"" + rowId + "\"]").value) || 0;
+      var deduction = Number(document.querySelector("[data-payroll-deduction=\"" + rowId + "\"]").value) || 0;
+      var net = Math.max(salary - deduction, 0);
+      document.querySelector("[data-payroll-net=\"" + rowId + "\"]").textContent = fmtMoney(net);
+      total += net;
+    });
+    document.getElementById("payroll-total").textContent = fmtMoney(total);
+  }
+
+  async function postPayroll() {
+    var rows = document.querySelectorAll("#payroll-table-body tr");
+    if (rows.length === 0) { alert("\u0623\u0636\u0641 \u0645\u0648\u0638\u0641 \u0648\u0627\u062D\u062F \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644."); return; }
+
+    var treasuryAccount = document.getElementById("payroll-treasury-account").value;
+    var expenseAccount = document.getElementById("payroll-expense-account").value;
+    if (!treasuryAccount || !expenseAccount) { alert("\u0627\u062E\u062A\u0631 \u062D\u0633\u0627\u0628 \u0627\u0644\u062E\u0632\u064A\u0646\u0629 \u0648\u062D\u0633\u0627\u0628 \u0645\u0635\u0631\u0648\u0641 \u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0623\u0648\u0644\u064B\u0627."); return; }
+
+    var lines = [];
+    var hasEmptyName = false;
+    rows.forEach(function (row) {
+      var rowId = row.dataset.payrollRow;
+      var select = document.querySelector("[data-payroll-employee=\"" + rowId + "\"]");
+      var selected = select.options[select.selectedIndex];
+      var name = selected && select.value ? selected.textContent : "";
+      if (!name) hasEmptyName = true;
+      lines.push({
+        employee_name: name,
+        salary: document.querySelector("[data-payroll-salary=\"" + rowId + "\"]").value,
+        deduction: document.querySelector("[data-payroll-deduction=\"" + rowId + "\"]").value,
       });
     });
 
-    WF.wireButtons(tbody, {
-      records: rows,
-      onAdvance: (record, fromStatus) => {
-        // Only the approved -> posted step touches money — must go
-        // through VVChangeRequests, never a direct write. record.status
-        // was already mutated in place by accounts_core.js's shared
-        // workflow engine before this callback runs; we deliberately
-        // ignore that stale in-memory value and act only on record.id,
-        // re-reading everything fresh inside submitPostingRequest().
-        if (fromStatus === "approved") {
-          submitPostingRequest(record.id);
-          return;
-        }
-        // draft -> submitted, submitted -> approved: unchanged — no
-        // financial effect, so these stay simple direct writes, but
-        // re-validated against the CURRENT persisted status (not the
-        // stale in-memory one) before writing, exactly as instructed.
-        const expenses = readExpenses();
-        const idx = expenses.findIndex((e) => e.id === record.id);
-        if (idx === -1) { alert("المصروف لم يعد موجودًا."); renderExpensesTable(); return; }
+    if (hasEmptyName) { alert("\u0627\u062E\u062A\u0631 \u0645\u0648\u0638\u0641 \u0644\u0643\u0644 \u0635\u0641.\u060C \u0623\u0648 \u0627\u062D\u0630\u0641 \u0627\u0644\u0635\u0641\u0648\u0641 \u0627\u0644\u0641\u0627\u0631\u063A\u0629."); return; }
+    if (!confirm("\u0635\u0631\u0641 \u0625\u062C\u0645\u0627\u0644\u064A \u0631\u0648\u0627\u062A\u0628 " + lines.length + " \u0645\u0648\u0638\u0641 \u062F\u0641\u0639\u0629 \u0648\u0627\u062D\u062F\u0629\u061F")) return;
 
-        const currentStatus = expenses[idx].status;
-        const allowedTransitions = { draft: "submitted", submitted: "approved" };
-        if (allowedTransitions[currentStatus] === record.status) {
-          expenses[idx].status = record.status;
-          writeExpenses(expenses);
-          renderExpensesTable();
-        } else {
-          alert("تغيير حالة غير مصرح به أو تم تحديث البيانات بواسطة مستخدم آخر.");
-          renderExpensesTable();
-        }
-      },
-      onDelete: (record) => {
-        if (record.status !== "draft") { alert("لا يمكن حذف مصروف تم اعتماده أو ترحيله."); return; }
-        const expenses = readExpenses();
-        const exists = expenses.some((e) => e.id === record.id);
-        if (!exists) { alert("المصروف لم يعد موجودًا."); renderExpensesTable(); return; }
-        writeExpenses(expenses.filter((e) => e.id !== record.id));
-        renderExpensesTable();
-      },
-      onReverse: (record) => {
-        submitReversalRequest(record.id);
-      },
-    });
-  }
-
-  // =========================================================================
-  // Change Request submission — no financial mutation happens in either of
-  // these two functions. Each validates what it can up front (fast,
-  // friendly rejection), then hands off entirely to VVChangeRequests; the
-  // real work happens only in the registered Apply Handler below.
-  // =========================================================================
-
-  function submitPostingRequest(expenseId) {
-    const expenses = readExpenses();
-    const expense = expenses.find((e) => e.id === expenseId);
-    if (!expense) { alert("المصروف لم يعد موجودًا."); return; }
-    if (expense.status === "posting") { alert("هذا المصروف في حالة ترحيل معلّقة من محاولة سابقة لم تكتمل — يحتاج مراجعة يدوية."); return; }
-    if (expense.status !== "approved") { alert(`لا يمكن ترحيل المصروف — حالته الحالية "${WF.label(expense.status)}"، ويجب أن تكون "معتمد".`); return; }
-    if (expense.reversed || expense.reversedBy) { alert("لا يمكن ترحيل مصروف تم عكسه بالفعل."); return; }
-
-    const request = window.VVChangeRequests.createRequest({
-      module: "expenses",
-      changeType: "post",
-      targetId: expense.id,
-      targetLabel: `${expense.category} — ${CORE.formatMoney(expense.amount)}`,
-      payload: {},
-    });
-
-    if (request) {
-      alert(request.status === "approved" ? `تم ترحيل المصروف فورًا.` : `تم إرسال طلب ترحيل المصروف — بانتظار الاعتماد.`);
-      renderExpensesTable();
-    }
-  }
-
-  function submitReversalRequest(expenseId) {
-    const expenses = readExpenses();
-    const original = expenses.find((e) => e.id === expenseId);
-    if (!original) { alert("المصروف لم يعد موجودًا."); return; }
-    if (original.reversalState === "in_progress") { alert("هذا المصروف في حالة عكس معلّقة من محاولة سابقة لم تكتمل — يحتاج مراجعة يدوية."); return; }
-    if (original.status !== "posted") { alert("لا يمكن عكس مصروف إلا وهو مُرحّل."); return; }
-    if (original.reversedBy || original.reversed) { alert("هذا المصروف تم عكسه بالفعل."); return; }
-
-    const request = window.VVChangeRequests.createRequest({
-      module: "expenses",
-      changeType: "reverse",
-      targetId: original.id,
-      targetLabel: `عكس مصروف: ${original.category} — ${CORE.formatMoney(original.amount)}`,
-      payload: {},
-    });
-
-    if (request) {
-      alert(request.status === "approved" ? `تم عكس المصروف فورًا.` : `تم إرسال طلب عكس المصروف — بانتظار الاعتماد.`);
-      renderExpensesTable();
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_POST_PAYROLL, {
+        method: "POST", body: { treasury_account: treasuryAccount, expense_account: expenseAccount, lines: lines },
+      });
+      alert("\u062A\u0645 \u0635\u0631\u0641 \u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u0646\u062C\u0627\u062D -- \u0625\u062C\u0645\u0627\u0644\u064A " + fmtMoney(result.data.total_net) + ".");
+      document.getElementById("payroll-table-body").innerHTML = "";
+      updatePayrollTotals();
+      await loadExpenses();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0635\u0631\u0641 \u0627\u0644\u0631\u0648\u0627\u062A\u0628.");
     }
   }
 
   // =========================================================================
-  // Apply Handler — registered with the shared change_requests.js engine.
-  // This is the ONLY place applyExpenseEffect() is ever called from.
-  //
-  // Atomicity note (honest, not a claim): writing vv_expenses and the
-  // Treasury/Custody stores are separate localStorage.setItem() calls —
-  // there is no cross-key transaction in Web Storage, so they can never
-  // be made truly atomic as a pair from this file, or any file, alone.
-  // What this DOES do: write an intent marker into vv_expenses itself
-  // BEFORE ever touching Treasury/Custody, so an interruption between the
-  // two leaves the expense in a visibly "stuck" transient status
-  // ("posting", or reversalState "in_progress") that this Apply Handler
-  // explicitly refuses to act on again — a silent, retriable, double-
-  // application risk becomes a detectable, blocked one that needs a
-  // human to resolve, not a promise that it gets auto-fixed.
+  // Custody
   // =========================================================================
 
-  if (window.VVChangeRequests) {
-    window.VVChangeRequests.registerApplyHandler("expenses", (request) => {
-      if (window.VVPermissions && window.VVAuth) {
-        const actingUser = window.VVAuth.getCurrentUser();
-        const requiredPermission = window.VVPermissions.permissionForAction({ module: "expenses", changeType: request.changeType, payload: request.payload });
-        if (!window.VVPermissions.can(actingUser, requiredPermission)) {
-          return { success: false, reason: "ليس لديك الصلاحية الكافية لتنفيذ هذه العملية." };
-        }
-      }
+  async function loadCustody() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.CUSTODY);
+      custodyCache = result.data.results || result.data;
+    } catch (err) { custodyCache = []; }
+    renderCustodyTable();
+    renderKpiCards();
+  }
 
-      const expenses = readExpenses();
-      const expense = expenses.find((e) => e.id === request.targetId);
+  function renderCustodyTable() {
+    var query = (document.getElementById("custody-search").value || "").trim().toLowerCase();
+    var rows = custodyCache.filter(function (c) {
+      return !query || (c.employee_name || "").toLowerCase().includes(query);
+    });
 
-      // ---- POST ----
-      if (request.changeType === "post") {
-        if (!expense) return { success: false, reason: "المصروف المستهدف لم يعد موجودًا." };
-        if (expense.status === "posting") {
-          return { success: false, reason: "هذا المصروف في حالة ترحيل معلّقة من محاولة سابقة لم تكتمل (انقطاع محتمل) — يحتاج مراجعة يدوية قبل أي محاولة جديدة. لا يمكن إعادة المحاولة تلقائيًا لتجنّب مضاعفة الأثر المالي." };
-        }
-        if (expense.status !== "approved") {
-          return { success: false, reason: `حالة المصروف الحالية "${WF.label(expense.status)}" — يجب أن تكون "معتمد" قبل الترحيل (ربما تم ترحيله بالفعل من مكان آخر).` };
-        }
-        if (expense.reversed || expense.reversedBy) {
-          return { success: false, reason: "لا يمكن ترحيل مصروف تم عكسه بالفعل." };
-        }
+    var tbody = document.getElementById("custody-table-body");
+    var table = document.getElementById("custody-table");
+    var empty = document.getElementById("custody-empty");
 
-        // Phase 1 — mark intent BEFORE touching Treasury/Custody.
-        const idx = expenses.findIndex((e) => e.id === expense.id);
-        expenses[idx].status = "posting";
-        writeExpenses(expenses);
+    if (rows.length === 0) { table.style.display = "none"; empty.style.display = "block"; return; }
+    table.style.display = "table";
+    empty.style.display = "none";
 
-        // Phase 2 — the actual financial mutation.
-        const effectResult = applyExpenseEffect(expense, 1);
+    var todayStr = todayISO();
 
-        if (!effectResult.success) {
-          // applyExpenseEffect() validates everything BEFORE writing
-          // anything, so a failure here means Treasury/Custody were,
-          // with certainty, never touched — safe to fully revert.
-          const revert = readExpenses();
-          const revertIdx = revert.findIndex((e) => e.id === expense.id);
-          if (revertIdx !== -1) { revert[revertIdx].status = "approved"; writeExpenses(revert); }
-          return effectResult;
-        }
+    tbody.innerHTML = rows.map(function (c) {
+      var isOverdue = c.status === "posted" && c.due_date && c.due_date < todayStr;
+      var employee = employeesCache.find(function (e) { return e.id === c.employee; });
+      var jobTitle = employee && employee.department ? employee.department : "-";
+      return "<tr>" +
+        "<td class=\"mono\">" + escapeHtml(c.number) + "</td>" +
+        "<td>" + escapeHtml(c.date) + "</td>" +
+        "<td>" + escapeHtml(c.employee_name) + "</td>" +
+        "<td>" + escapeHtml(jobTitle) + "</td>" +
+        "<td class=\"num\">" + fmtMoney(c.amount) + " " + escapeHtml(c.currency || "EGP") + "</td>" +
+        "<td class=\"num\">" + fmtMoney(c.spent) + "</td>" +
+        "<td class=\"num\">" + fmtMoney(c.remaining) + "</td>" +
+        "<td>" + (c.due_date ? escapeHtml(c.due_date) : "-") + "</td>" +
+        "<td>" + (isOverdue
+          ? "<span class=\"status-badge status-badge--overdue\">\u0645\u062A\u0623\u062E\u0631\u0629</span>"
+          : "<span class=\"status-badge status-badge--" + c.status + "\">" + (STATUS_LABELS[c.status] || c.status) + "</span>") + "</td>" +
+        "<td>" + custodyActionsHtml(c) + "</td>" +
+      "</tr>";
+    }).join("");
 
-        // Phase 3 — only now, after the mutation is confirmed durable,
-        // record the true final state and clear the intent marker.
-        const final = readExpenses();
-        const finalIdx = final.findIndex((e) => e.id === expense.id);
-        if (finalIdx === -1) return { success: false, reason: "تم تنفيذ الأثر المالي لكن المصروف اختفى أثناء حفظ الحالة النهائية." };
-        final[finalIdx].status = "posted";
-        writeExpenses(final);
-        return { success: true };
-      }
+    wireCustodyActions();
+  }
 
-      // ---- REVERSE ----
-      // Never edits or deletes the original expense's financial fields —
-      // creates an independent reversing expense record instead, linked
-      // via reversesExpenseId/reversedBy, exactly matching the
-      // relationship shape already established in vouchers.js.
-      if (request.changeType === "reverse") {
-        if (!expense) return { success: false, reason: "المصروف الأصلي لم يعد موجودًا." };
-        if (expense.reversalState === "in_progress") {
-          return { success: false, reason: "هذا المصروف في حالة عكس معلّقة من محاولة سابقة لم تكتمل (انقطاع محتمل) — يحتاج مراجعة يدوية قبل أي محاولة جديدة. لا يمكن إعادة المحاولة تلقائيًا لتجنّب مضاعفة الأثر المالي." };
-        }
-        if (expense.status !== "posted") {
-          return { success: false, reason: `لا يمكن عكس مصروف حالته "${WF.label(expense.status)}" — يجب أن يكون "مُرحّل".` };
-        }
-        if (expense.reversedBy || expense.reversed) {
-          return { success: false, reason: "هذا المصروف تم عكسه بالفعل (ربما من مكان آخر منذ إرسال الطلب)." };
-        }
+  var CUSTODY_NEXT_ACTION = { draft: "submit", submitted: "approve", approved: "issue" };
+  var CUSTODY_NEXT_LABEL = { draft: "\u0625\u0631\u0633\u0627\u0644", submitted: "\u0627\u0639\u062A\u0645\u0627\u062F", approved: "\u0625\u0635\u062F\u0627\u0631" };
 
-        // Phase 1 — mark intent on the ORIGINAL expense before touching
-        // anything financial.
-        const idx = expenses.findIndex((e) => e.id === expense.id);
-        expenses[idx].reversalState = "in_progress";
-        writeExpenses(expenses);
+  function custodyActionsHtml(c) {
+    var html = "";
+    var nextAction = CUSTODY_NEXT_ACTION[c.status];
+    if (nextAction) {
+      html += "<button class=\"btn-workflow-next\" data-custody-advance=\"" + c.id + "\" data-action=\"" + nextAction + "\">" + CUSTODY_NEXT_LABEL[c.status] + "</button>";
+    }
+    if (c.status === "posted") {
+      html += "<button class=\"btn-workflow-next\" data-custody-settle=\"" + c.id + "\">\u062A\u0635\u0641\u064A\u0629 \u0639\u0647\u062F\u0629</button>";
+    }
+    if (c.status === "draft") {
+      html += "<button class=\"row-action-btn is-danger\" data-custody-delete=\"" + c.id + "\" title=\"\u062D\u0630\u0641\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button>";
+    }
+    return html;
+  }
 
-        const reversingExpense = {
-          id: generateExpenseId(),
-          date: CORE.todayISO(),
-          category: expense.category,
-          amount: expense.amount,
-          paymentMethod: expense.paymentMethod,
-          accountId: expense.accountId,
-          custodyId: expense.custodyId,
-          invoiceNumber: expense.invoiceNumber,
-          description: `عكس مصروف: ${expense.description}`,
-          attachment: null,
-          status: "posted",
-          isReversal: true,
-          reversed: false,
-          reversedBy: null,
-          reversesExpenseId: expense.id,
-          reversalState: null,
-        };
-
-        // Phase 2 — the actual financial mutation, negated.
-        const effectResult = applyExpenseEffect(reversingExpense, -1);
-
-        if (!effectResult.success) {
-          const revert = readExpenses();
-          const revertIdx = revert.findIndex((e) => e.id === expense.id);
-          if (revertIdx !== -1) { revert[revertIdx].reversalState = null; writeExpenses(revert); }
-          return effectResult; // nothing else written — no reversing expense created, original's reversedBy untouched
-        }
-
-        // Phase 3 — record the true final state, clear the intent
-        // marker, push the new reversing expense record.
-        const final = readExpenses();
-        const finalIdx = final.findIndex((e) => e.id === expense.id);
-        if (finalIdx !== -1) {
-          final[finalIdx].reversedBy = reversingExpense.id;
-          final[finalIdx].reversed = true;
-          final[finalIdx].reversalState = null;
-        }
-        final.push(reversingExpense);
-        writeExpenses(final);
-        return { success: true };
-      }
-
-      return { success: false, reason: `نوع طلب غير معروف للمصروفات: ${request.changeType}` };
+  function wireCustodyActions() {
+    document.querySelectorAll("[data-custody-advance]").forEach(function (btn) {
+      btn.addEventListener("click", function () { advanceCustody(btn.dataset.custodyAdvance, btn.dataset.action); });
+    });
+    document.querySelectorAll("[data-custody-settle]").forEach(function (btn) {
+      btn.addEventListener("click", function () { settleCustody(btn.dataset.custodySettle); });
+    });
+    document.querySelectorAll("[data-custody-delete]").forEach(function (btn) {
+      btn.addEventListener("click", function () { deleteCustody(btn.dataset.custodyDelete); });
     });
   }
 
+  async function advanceCustody(id, action) {
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.CUSTODY_DETAIL(id) + action + "/", { method: "POST" });
+      await loadCustody();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0639\u0647\u062F\u0629.");
+    }
+  }
+
+  async function settleCustody(id) {
+    if (!confirm("\u062A\u0635\u0641\u064A\u0629 \u0647\u0630\u0647 \u0627\u0644\u0639\u0647\u062F\u0629\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.CUSTODY_DETAIL(id) + "settle/", { method: "POST" });
+      await loadCustody();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062A\u0635\u0641\u064A\u0629 \u0627\u0644\u0639\u0647\u062F\u0629.");
+    }
+  }
+
+  async function deleteCustody(id) {
+    if (!confirm("\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0639\u0647\u062F\u0629 \u0646\u0647\u0627\u0626\u064A\u064B\u0627\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.CUSTODY_DETAIL(id), { method: "DELETE" });
+      await loadCustody();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0639\u0647\u062F\u0629.");
+    }
+  }
+
+  function resetCustodyForm() {
+    document.getElementById("cu-date").value = todayISO();
+    document.getElementById("cu-amount").value = "0";
+    document.getElementById("cu-currency").value = "EGP";
+    document.getElementById("cu-due-date").value = "";
+    document.getElementById("cu-description").value = "";
+  }
+
+  async function saveCustody() {
+    var payload = {
+      date: document.getElementById("cu-date").value,
+      employee: document.getElementById("cu-employee").value,
+      amount: document.getElementById("cu-amount").value,
+      currency: document.getElementById("cu-currency").value,
+      due_date: document.getElementById("cu-due-date").value || null,
+      treasury_account: document.getElementById("cu-treasury-account").value,
+      custody_account: document.getElementById("cu-custody-account").value,
+      description: document.getElementById("cu-description").value.trim(),
+    };
+
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.CUSTODY, { method: "POST", body: payload });
+      closeModal("modal-add-custody");
+      await loadCustody();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u0639\u0647\u062F\u0629.");
+    }
+  }
+
   // =========================================================================
-  // Self-wire the dashboard's Quick Action trigger + register the module
+  // CSV Export
   // =========================================================================
 
-  window.VVAccountsModules = window.VVAccountsModules || {};
-  window.VVAccountsModules.expenses = renderExpensesModule;
+  function csvEscape(value) {
+    var s = value === null || value === undefined ? "" : String(value);
+    return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
+  }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll('[data-view="expenses"], #qa-expenses').forEach((btn) => {
-      btn.addEventListener("click", () => window.switchAccountView("expenses"));
+  function exportExpensesCsv() {
+    var query = (document.getElementById("expense-search").value || "").trim().toLowerCase();
+    var dateFilter = document.getElementById("expense-filter-date").value;
+    var rows = expensesCache.filter(function (e) {
+      var matchesQuery = !query || (e.category || "").toLowerCase().includes(query) || (e.description || "").toLowerCase().includes(query);
+      var matchesDate = !dateFilter || e.date === dateFilter;
+      return matchesQuery && matchesDate;
     });
-  });
+    if (rows.length === 0) { alert("\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0644\u062A\u0635\u062F\u064A\u0631\u0647\u0627."); return; }
+
+    var lines = [["\u0627\u0644\u062A\u0627\u0631\u064A\u062E", "\u0627\u0644\u0641\u0626\u0629", "\u0627\u0644\u0628\u064A\u0627\u0646", "\u0645\u0631\u062C\u0639 \u0627\u0644\u062D\u062C\u0632", "\u0627\u0644\u0645\u0628\u0644\u063A", "\u0627\u0644\u0639\u0645\u0644\u0629", "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u062F\u0641\u0639", "\u0627\u0644\u062D\u0627\u0644\u0629"].map(csvEscape).join(",")];
+    rows.forEach(function (e) {
+      lines.push([e.date, e.category, e.description, e.booking_reference, e.amount, e.currency, PAYMENT_METHOD_LABELS_AR[e.payment_method], STATUS_LABELS[e.status]].map(csvEscape).join(","));
+    });
+    var csv = "\uFEFF" + lines.join("\r\n");
+
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "Voyvista-Expenses-" + todayISO() + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 })();

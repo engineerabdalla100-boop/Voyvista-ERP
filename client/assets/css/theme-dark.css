@@ -1,0 +1,57 @@
+/* ==========================================================================
+   Voyvista ERP -- Dark Theme
+   مفعّل فقط تحت [data-theme="dark"] على <html> -- بيعيد تعريف نفس
+   الـCSS Variables اللي كل الصفحات أصلًا بتستخدمها، فمفيش داعي لأي
+   تعديل تاني في أي ملف HTML أو CSS موجود.
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+  --ink: #05070D;
+  --ink-soft: #0F1626;
+  --ink-line: #1E2A42;
+
+  --canvas: #0B0F1A;
+  --surface: #131A2B;
+  --border: #232E45;
+
+  --text: #E8ECF5;
+  --text-soft: #A6B0C8;
+  --text-faint: #6B7690;
+  --text-on-ink: #EAF0FF;
+  --text-on-ink-soft: #8FA3CC;
+
+  --gold: #D9AE55;
+  --gold-deep: #E8C878;
+  --gold-soft: #2B2412;
+
+  --emerald: #34C48C;
+  --emerald-soft: #0F2A20;
+  --azure: #5B8CF0;
+  --azure-soft: #14213D;
+  --amber: #E0A83F;
+  --amber-soft: #2E2311;
+  --coral: #E8696C;
+  --coral-soft: #2E1416;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="dark"] body {
+  background: var(--canvas);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .form-input,
+:root[data-theme="dark"] .form-select,
+:root[data-theme="dark"] .form-textarea,
+:root[data-theme="dark"] .vv-field input,
+:root[data-theme="dark"] .vv-field select,
+:root[data-theme="dark"] .vv-field textarea {
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] img {
+  opacity: 0.92;
+}

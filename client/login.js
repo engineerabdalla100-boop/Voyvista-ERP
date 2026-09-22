@@ -1,61 +1,60 @@
 /**
- * login.js — client/login.html
+ * login.js -- client/login.html
  * -----------------------------------------------------------------------
- * login.html's form had no submit handler at all — hitting the button
- * just did a native page reload with nothing saved. This wires it up
- * for real, consistent with how the rest of this project already works.
- *
- * HONEST LIMITATION (matching auth.js's own explicit disclaimer): there
- * is no real backend yet, so this can't actually verify a password
- * against anything. The password field is required (can't be submitted
- * empty) but its value is never checked — this is a Frontend-only
- * placeholder, not a security boundary, exactly like every other
- * "auth" moment in this project until the real Django API exists. What
- * this DOES do for real: creates a genuine vv_user session using
- * whatever username was typed, so the whole rest of the app (which
- * already reads vv_user everywhere) works correctly right after login —
- * name in the topbar, role-based visibility, etc.
+ * نسخة حقيقية متصلة بالباكيند (Django REST Framework عبر VVApi) -- بتحل
+ * محل النسخة القديمة اللي كانت بتقبل أي username/password بلا أي تحقق
+ * فعلي وتخزّن دور "employee" ثابت. دلوقتي:
+ *   - بيبعت طلب حقيقي لـ /api/auth/login/
+ *   - باسورد غلط أو مستخدم مش موجود = رفض حقيقي من السيرفر (400)
+ *   - الرول (role) اللي بيتخزن جاي من السيرفر نفسه، مش قيمة ثابتة
+ *   - full_name بيتبني هنا من first_name/last_name -- الباكيند بيرجّع
+ *     الاتنين منفصلين، لكن باقي الفرونت إند (components.js وغيره)
+ *     بيدوّر على حقل full_name واحد مجمّع، فبنبنيه هنا بدل ما نغيّر
+ *     شكل الباكيند نفسه.
  * -----------------------------------------------------------------------
  */
 
 (function () {
   "use strict";
 
-  // Where to land right after logging in. There's no formal "home" page
-  // in this project (VVRouter is explicitly a stub with no real routing —
-  // see router.js) — Flights is the first item in the main nav and the
-  // most natural default landing spot.
-  const LANDING_PAGE = "/client/modules/operations/flights.html";
+  var LANDING_PAGE = "/client/modules/operations/flights.html";
 
-  function handleLoginSubmit(e) {
+  async function handleLoginSubmit(e) {
     e.preventDefault();
 
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value;
+    var username = document.getElementById("username").value.trim();
+    var password = document.getElementById("password").value;
+    var submitBtn = document.querySelector(".login-btn");
 
-    if (!username) { alert("اكتب اسم المستخدم أو البريد الإلكتروني."); return; }
+    if (!username) { alert("اكتب اسم المستخدم."); return; }
     if (!password) { alert("اكتب كلمة المرور."); return; }
 
-    const user = {
-      id: Date.now(),
-      full_name: username,
-      username: username, // needed so it_dashboard's per-employee module restrictions (employees.js) can actually match this session back to a vv_employees record
-      email: username.includes("@") ? username : "",
-      role: "employee", // default — anyone can switch roles afterward via the testing role-switcher already in the topbar (components.js), same as everywhere else in this project
-      department: "—",
-    };
+    submitBtn.disabled = true;
+    submitBtn.textContent = "جاري الدخول...";
 
     try {
-      localStorage.setItem(VV_CONFIG.STORAGE_KEYS.USER, JSON.stringify(user));
-    } catch (err) {
-      alert("تعذّر حفظ الجلسة — تأكد إن التخزين المحلي (localStorage) مفعّل في المتصفح.");
-      return;
-    }
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.LOGIN, {
+        method: "POST",
+        body: { username: username, password: password },
+      });
 
-    window.location.href = LANDING_PAGE;
+      var user = result.data.user;
+      var fullName = ((user.first_name || "") + " " + (user.last_name || "")).trim();
+      user.full_name = fullName || user.username;
+
+      localStorage.setItem(VV_CONFIG.STORAGE_KEYS.TOKEN, result.data.token);
+      localStorage.setItem(VV_CONFIG.STORAGE_KEYS.USER, JSON.stringify(user));
+
+      window.location.href = LANDING_PAGE;
+    } catch (err) {
+      alert(err.message || "فشل تسجيل الدخول.");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "تسجيل الدخول";
+    }
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("login-form")?.addEventListener("submit", handleLoginSubmit);
+  document.addEventListener("DOMContentLoaded", function () {
+    var form = document.getElementById("login-form");
+    if (form) form.addEventListener("submit", handleLoginSubmit);
   });
 })();

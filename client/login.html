@@ -42,7 +42,6 @@
       width: 100%;
     }
 
-    /* الطائرة في منتصف الشاشة */
     .plane-wrapper {
       position: absolute;
       cursor: pointer;
@@ -75,7 +74,6 @@
       50% { opacity: 0.3; transform: translateY(-4px); }
     }
 
-    /* كارت تسجيل الدخول */
     .login-card {
       background: var(--card-bg);
       padding: 44px 36px 36px 36px;
@@ -96,13 +94,13 @@
       pointer-events: all;
     }
 
-    /* اسم النظام Voyvista بارز وواضح جداً */
     .brand-title {
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
       font-size: 32px;
       font-weight: 800;
       text-align: center;
       letter-spacing: -0.5px;
+      color: #0f172a;
       background: linear-gradient(135deg, #0f172a 0%, #2563eb 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -166,7 +164,11 @@
       box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
     }
 
-    /* اسم الـ Owner فقط أسفل المربع */
+    .login-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .owner-signature {
       margin-top: 28px;
       font-family: 'Playfair Display', serif;
@@ -190,15 +192,13 @@
 
   <div class="main-container">
 
-    <!-- الطائرة في منتصف الشاشة -->
     <div class="plane-wrapper" id="plane-btn">
       <svg class="plane-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3.5c-.5-.5-2.5 0-4 1.5L13.5 8.5 5.3 6.7c-.8-.2-1.6.1-2.1.7l-.7.8 5.6 4.3-3.2 3.2-2.4-.6-1 .9 3.5 2.7 2.7 3.5.9-1-.6-2.4 3.2-3.2 4.3 5.6.8-.7c.6-.5.9-1.3.7-2.1z"/>
       </svg>
-      <div class="click-hint" id="click-hint">اضغط للبدء ✈️</div>
+      <div class="click-hint" id="click-hint">اضغط للبدء</div>
     </div>
 
-    <!-- كارت تسجيل الدخول -->
     <div class="login-card">
       <h1 class="brand-title">Voyvista ERP</h1>
       <p>تسجيل الدخول للنظام</p>
@@ -211,14 +211,13 @@
 
         <div class="input-box">
           <label>كلمة المرور</label>
-          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+          <input type="password" id="password" placeholder="********" required autocomplete="current-password">
         </div>
 
         <button type="submit" class="login-btn">تسجيل الدخول</button>
       </form>
     </div>
 
-    <!-- اسم الـ Owner فقط -->
     <div class="owner-signature">
       Haytham Ghoniem
     </div>
@@ -226,6 +225,7 @@
   </div>
 
   <script src="/client/assets/js/config.js"></script>
+  <script src="/client/assets/js/api_client.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script>
     const planeBtn = document.getElementById('plane-btn');

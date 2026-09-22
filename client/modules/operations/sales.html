@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>قسم المبيعات - لوحة التحكم | Voyvista ERP</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" />
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', var(--font-body); }
+
+  .acc-header { margin-bottom: 26px; }
+  .acc-header h1 { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 22px; }
+  .acc-header p { font-size: 13px; color: var(--text-soft); margin-top: 5px; }
+
+  .stat-grid .stat-card__icon { background: var(--gold-soft); color: var(--gold-deep); }
+
+  .sales-grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin-bottom: 18px; }
+  .sales-grid-2b { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 980px) { .sales-grid-2, .sales-grid-2b { grid-template-columns: 1fr; } }
+
+  .chart-panel { padding: 16px 18px; }
+  .chart-panel h4 { font-family: 'Cairo', sans-serif; font-size: 13.5px; font-weight: 700; margin-bottom: 12px; }
+  .chart-canvas-wrap { position: relative; height: 220px; }
+
+  .status-pill-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .status-pill { border-radius: var(--radius-sm); padding: 12px 10px; text-align: center; }
+  .status-pill__num { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 20px; }
+  .status-pill__label { font-size: 11px; margin-top: 4px; font-weight: 600; }
+  .status-pill--confirmed { background: var(--emerald-soft); color: var(--emerald); }
+  .status-pill--pending   { background: var(--amber-soft); color: var(--amber); }
+  .status-pill--cancelled { background: var(--coral-soft); color: var(--coral); }
+  .status-pill--progress  { background: var(--azure-soft); color: var(--azure); }
+
+  .new-booking-cta { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+
+  .quick-actions-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 26px; }
+  @media (max-width: 1200px) { .quick-actions-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 700px) { .quick-actions-grid { grid-template-columns: repeat(2, 1fr); } }
+  .quick-action-btn {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+    padding: 16px 12px; text-align: center; cursor: pointer; transition: all .15s ease;
+  }
+  .quick-action-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--gold); }
+  .quick-action-btn__icon { width: 38px; height: 38px; border-radius: 10px; background: var(--qa-bg, var(--gold-soft)); color: var(--qa-fg, var(--gold-deep)); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; }
+  .quick-action-btn__icon svg { width: 17px; height: 17px; }
+  .quick-action-btn__label { font-size: 11.5px; font-weight: 700; color: var(--text); }
+
+  .module-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .module-toolbar__title { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 18px; color: var(--text); }
+
+  .filters-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .search-wrap { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; min-width: 200px; }
+  .search-wrap svg { width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0; }
+  .search-wrap input { border: none; outline: none; width: 100%; background: transparent; font-size: 12.5px; font-family: 'Cairo', sans-serif; }
+  .filters-bar select, .filters-bar input[type="date"] {
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12.5px;
+    font-family: 'Cairo', sans-serif; background: var(--surface); color: var(--text);
+  }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.acc-table { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 13px; }
+  .acc-table thead th { text-align: right; font-size: 11px; color: var(--text-faint); font-weight: 700; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .acc-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .acc-table tbody tr:last-child td { border-bottom: none; }
+  .acc-table .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .amount-in { color: var(--emerald); }
+  .amount-out { color: var(--coral); }
+  .cell-primary { font-weight: 700; color: var(--text); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge--paid_full { background: var(--emerald-soft); color: var(--emerald); }
+  .badge--deposit { background: var(--amber-soft); color: var(--amber); }
+  .badge--unpaid { background: var(--coral-soft); color: var(--coral); }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin: 30px 0 16px; }
+  .section-title h2 { font-family: 'Cairo', sans-serif; font-weight: 800; font-size: 15.5px; color: var(--text); }
+
+  .vv-field { margin-bottom: 14px; }
+  .vv-field label { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-soft); margin-bottom: 6px; }
+  .vv-field input, .vv-field select, .vv-field textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--text); background: var(--surface); font-family: 'Cairo', sans-serif;
+  }
+  .vv-field input[readonly] { background: var(--canvas); color: var(--text-soft); font-weight: 700; }
+  .vv-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .vv-field-row--3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .service-pick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .service-pick-btn {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md);
+    padding: 16px 10px; text-align: center; cursor: pointer; transition: all .15s ease;
+  }
+  .service-pick-btn:hover, .service-pick-btn.is-selected { border-color: var(--gold); background: var(--gold-soft); }
+  .service-pick-btn__icon { width: 34px; height: 34px; margin: 0 auto 8px; color: var(--gold-deep); }
+  .service-pick-btn__icon svg { width: 100%; height: 100%; }
+  .service-pick-btn__label { font-size: 12px; font-weight: 700; }
+
+  .result-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; }
+  .result-card__info { font-size: 12.5px; }
+  .result-card__title { font-weight: 700; font-size: 13px; }
+  .result-card__meta { color: var(--text-faint); font-size: 11.5px; margin-top: 2px; }
+  .result-card__price { font-family: var(--font-mono); font-weight: 700; color: var(--gold-deep); font-size: 14px; }
+
+  .review-row { display: flex; justify-content: space-between; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .review-row:last-child { border-bottom: none; }
+  .review-row__label { color: var(--text-soft); }
+  .review-row__value { font-weight: 700; }
+
+  .confirm-box { text-align: center; padding: 20px 10px 6px; }
+  .confirm-box__icon { width: 56px; height: 56px; border-radius: 50%; background: var(--emerald-soft); color: var(--emerald); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .confirm-box__icon svg { width: 26px; height: 26px; }
+  .confirm-box__code { font-family: var(--font-mono); font-weight: 700; font-size: 18px; margin: 6px 0 2px; }
+
+  .wizard-steps-hint { font-size: 11px; color: var(--text-faint); margin-bottom: 14px; }
+
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 640px; box-shadow: var(--shadow-lg); overflow: hidden; font-family: 'Cairo', sans-serif; }
+  .vv-modal--wide { max-width: 780px; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 9px; }
+  .vv-modal__title svg { width: 17px; height: 17px; color: var(--gold-deep); }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 70vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+  .vv-modal__footer-end { display: flex; gap: 10px; margin-inline-start: auto; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; border-radius: var(--radius-sm); padding: 9px 16px; border: 1px solid transparent; font-family: 'Cairo', sans-serif; cursor: pointer; }
+  .btn--primary { background: var(--gold); color: var(--ink); }
+  .btn--ghost { background: var(--surface); color: var(--text-soft); border-color: var(--border); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); }
+  .empty-state svg { width: 40px; height: 40px; margin-bottom: 10px; opacity: .5; }
+  .empty-state p { font-size: 13px; }
+
+  .note-row, .comm-row { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; font-size: 12.5px; }
+  .note-row__meta, .comm-row__meta { color: var(--text-faint); font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+
+      <div class="acc-header">
+        <h1>قسم المبيعات - لوحة التحكم</h1>
+        <p>نظرة عامة على المبيعات والحجوزات لهذا الشهر</p>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-card__icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v3M16 4v3"/></svg></div>
+          <div class="stat-card__body">
+            <div class="stat-card__label">اجمالي الحجوزات</div>
+            <div class="stat-card__value" id="kpi-total-bookings">0</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <div class="stat-card__body">
+            <div class="stat-card__label">اجمالي المبيعات</div>
+            <div class="stat-card__value" id="kpi-total-sales">0</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M15 20a4.5 4.5 0 0 1 8 0"/></svg></div>
+          <div class="stat-card__body">
+            <div class="stat-card__label">العملاء الجدد</div>
+            <div class="stat-card__value" id="kpi-new-clients">0</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card__icon"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.2 1.1-2 2.5-2s2.5.8 2.5 2-1.1 1.6-2.5 2-2.5.8-2.5 2 1.1 2 2.5 2 2.5-.8 2.5-2"/></svg></div>
+          <div class="stat-card__body">
+            <div class="stat-card__label">اجمالي العمولات</div>
+            <div class="stat-card__value" id="kpi-total-commissions">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sales-grid-2">
+        <div class="panel chart-panel">
+          <h4>المبيعات خلال الاشهر</h4>
+          <div class="chart-canvas-wrap"><canvas id="salesChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel__header"><div class="panel__title">آخر الحجوزات</div></div>
+          <div class="ledger-scroll" style="border:none; border-radius:0;">
+            <table class="acc-table" style="min-width:0;">
+              <thead><tr><th>القسم</th><th>العميل</th><th>التاريخ</th><th>الحالة</th><th>الرقم</th></tr></thead>
+              <tbody id="recent-bookings-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="sales-grid-2b">
+        <div class="panel chart-panel">
+          <h4>اعلى الوجهات مبيعا</h4>
+          <div class="chart-canvas-wrap" style="height:200px;"><canvas id="destChart"></canvas></div>
+        </div>
+        <div class="panel chart-panel">
+          <h4>متابعة الحجوزات</h4>
+          <div class="status-pill-grid" id="status-pill-grid"></div>
+        </div>
+      </div>
+
+      <div class="new-booking-cta">
+        <button class="btn btn--primary" id="btn-new-booking">+ حجز جديد</button>
+      </div>
+
+      <div class="quick-actions-grid">
+        <button class="quick-action-btn" data-open-modal="modal-quotes" style="--qa-bg:#E7EEFD;--qa-fg:#3068E0;">
+          <div class="quick-action-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          <div class="quick-action-btn__label">عروض الاسعار</div>
+        </button>
+        <button class="quick-action-btn" data-open-modal="modal-commissions" style="--qa-bg:#FBEFDA;--qa-fg:#C98A1E;">
+          <div class="quick-action-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.2 1.1-2 2.5-2s2.5.8 2.5 2-1.1 1.6-2.5 2-2.5.8-2.5 2 1.1 2 2.5 2 2.5-.8 2.5-2"/></svg></div>
+          <div class="quick-action-btn__label">العمولات والمستحقات</div>
+        </button>
+        <button class="quick-action-btn" data-open-modal="modal-reports" style="--qa-bg:#EDE9FE;--qa-fg:#7C5CE0;">
+          <div class="quick-action-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
+          <div class="quick-action-btn__label">التقارير</div>
+        </button>
+        <button class="quick-action-btn" data-open-modal="modal-customer-notes" style="--qa-bg:#DCFCE7;--qa-fg:#1E9D6E;">
+          <div class="quick-action-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/><path d="M9.5 12h5M9.5 15h5"/></svg></div>
+          <div class="quick-action-btn__label">ملاحظات العملاء</div>
+        </button>
+        <button class="quick-action-btn" data-open-modal="modal-communication" style="--qa-bg:#FCE7E7;--qa-fg:#D14848;">
+          <div class="quick-action-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 8.5 8.5 0 0 1-4-1L3 20l1.1-5.1a8.4 8.4 0 1 1 16.9-3.4z"/></svg></div>
+          <div class="quick-action-btn__label">التواصل مع العملاء</div>
+        </button>
+        <button class="quick-action-btn" data-open-modal="modal-sales-settings" style="--qa-bg:#F5EBD3;--qa-fg:#8C6A22;">
+          <div class="quick-action-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 .1-2l2-1.5-2-3.4-2.3.6a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.5 2.7a7.7 7.7 0 0 0-1.7 1l-2.3-.6-2 3.4L6.5 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-.6c.5.4 1.1.8 1.7 1L10.5 21h4l.5-2.7c.6-.2 1.2-.6 1.7-1l2.3.6 2-3.4-2-1.5z"/></svg></div>
+          <div class="quick-action-btn__label">اعدادات (Sales)</div>
+        </button>
+      </div>
+
+      <div class="section-title">
+        <h2>سجل المبيعات المركزي</h2>
+      </div>
+
+      <div class="module-toolbar">
+        <div class="filters-bar">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="f-search" placeholder="بحث بالاسم او رقم الحجز..." />
+          </div>
+          <select id="f-department">
+            <option value="">كل الاقسام</option>
+            <option value="flights">طيران</option>
+            <option value="hotels">فنادق</option>
+            <option value="packages">برامج سياحية</option>
+            <option value="visas">تأشيرات</option>
+            <option value="transfers">نقل</option>
+            <option value="insurance">تأمين سفر</option>
+          </select>
+          <select id="f-payment-status">
+            <option value="">كل حالات السداد</option>
+            <option value="paid_full">مدفوع بالكامل</option>
+            <option value="deposit">دفعة مقدمة</option>
+            <option value="unpaid">غير مدفوع</option>
+          </select>
+          <input type="date" id="f-date-from" title="من تاريخ" />
+          <input type="date" id="f-date-to" title="الى تاريخ" />
+        </div>
+      </div>
+
+      <div class="ledger-scroll">
+        <table class="acc-table">
+          <thead>
+            <tr>
+              <th>رقم الحجز</th><th>الاسم</th><th>العميل</th><th>الخدمة</th>
+              <th>التكلفة</th><th>سعر البيع</th><th>صافي الربح</th>
+              <th>العملة</th><th>حالة السداد</th><th>التاريخ</th>
+            </tr>
+          </thead>
+          <tbody id="sales-table-body"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-service-select">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+        تنويل جديد - اختر نوع الخدمة
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-service-select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="service-pick-grid" id="service-pick-grid">
+        <button class="service-pick-btn" data-service="flights"><div class="service-pick-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 3.5L4 14l3 1 2-2.5 3 6 1.5-1L12 10l6-3.5c1-.6 1-2 0-2.6-.7-.4-1.5-.3-2.2.1L10.5 8"/></svg></div><div class="service-pick-btn__label">تذاكر طيران</div></button>
+        <button class="service-pick-btn" data-service="hotels"><div class="service-pick-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15"/><path d="M14 10h6a1 1 0 0 1 1 1v10"/><path d="M3 21h18"/></svg></div><div class="service-pick-btn__label">فنادق</div></button>
+        <button class="service-pick-btn" data-service="packages"><div class="service-pick-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></div><div class="service-pick-btn__label">برنامج سياحي</div></button>
+        <button class="service-pick-btn" data-service="visas"><div class="service-pick-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="2.2"/></svg></div><div class="service-pick-btn__label">تأشيرة</div></button>
+        <button class="service-pick-btn" data-service="transfers"><div class="service-pick-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 13l1.5-5A2 2 0 0 1 6.4 6.5h11.2A2 2 0 0 1 19.5 8L21 13"/><path d="M3 13h18v5a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H6v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5z"/></svg></div><div class="service-pick-btn__label">نقل</div></button>
+        <button class="service-pick-btn" data-service="insurance"><div class="service-pick-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/></svg></div><div class="service-pick-btn__label">تأمين سفر</div></button>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 1 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-close-modal="modal-service-select">الغاء</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-flight-search">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 3.5L4 14l3 1 2-2.5 3 6 1.5-1L12 10l6-3.5c1-.6 1-2 0-2.6-.7-.4-1.5-.3-2.2.1L10.5 8"/></svg>
+        حجز طيران - بحث عن رحلة
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-flight-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>من</label><input type="text" id="fl-from" placeholder="القاهرة" /></div>
+        <div class="vv-field"><label>الى</label><input type="text" id="fl-to" placeholder="دبي" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>تاريخ السفر</label><input type="date" id="fl-date" /></div>
+        <div class="vv-field"><label>عدد المسافرين</label><input type="number" id="fl-pax" min="1" value="1" /></div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 2 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-wizard-back="modal-service-select">رجوع</button>
+        <button class="btn btn--primary" data-wizard-next="flight-search-to-results">بحث</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-hotel-search">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15"/><path d="M14 10h6a1 1 0 0 1 1 1v10"/></svg>
+        حجز فندق - بحث
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-hotel-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>المدينة / الفندق</label><input type="text" id="ht-city" placeholder="شرم الشيخ" /></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>تاريخ الدخول</label><input type="date" id="ht-checkin" /></div>
+        <div class="vv-field"><label>تاريخ الخروج</label><input type="date" id="ht-checkout" /></div>
+      </div>
+      <div class="vv-field"><label>عدد الغرف</label><input type="number" id="ht-rooms" min="1" value="1" /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 2 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-wizard-back="modal-service-select">رجوع</button>
+        <button class="btn btn--primary" data-wizard-next="hotel-search-to-results">بحث</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-search-results">
+  <div class="vv-modal vv-modal--wide">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span id="search-results-title">نتائج البحث</span>
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-search-results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body" id="search-results-body"></div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 3 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-wizard-back-dynamic>رجوع</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-booking-details">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4"/></svg>
+        تفاصيل الحجز والتسعير
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-booking-details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>وصف الخدمة المختارة</label><input type="text" id="bd-service-label" readonly /></div>
+      <div class="vv-field"><label>العملة</label>
+        <select id="bd-currency">
+          <option value="EGP">جنيه مصري (EGP)</option>
+            <option value="USD">دولار امريكي (USD)</option>
+            <option value="EUR">يورو (EUR)</option>
+            <option value="KWD">دينار كويتي (KWD)</option>
+            <option value="CAD">دولار كندي (CAD)</option>
+            <option value="CNY">يوان صيني (CNY)</option>
+            <option value="JPY">ين ياباني (JPY)</option>
+        </select>
+      </div>
+      <div class="vv-field-row--3">
+        <div class="vv-field"><label>التكلفة (EGP)</label><input type="number" id="ns-cost" min="0" value="0" /></div>
+        <div class="vv-field"><label>سعر البيع (EGP)</label><input type="number" id="ns-selling" min="0" value="0" /></div>
+        <div class="vv-field"><label>صافي الربح</label><input type="number" id="ns-profit" readonly value="0" /></div>
+      </div>
+      <div class="vv-field"><label>حالة السداد</label>
+        <select id="bd-payment-status">
+          <option value="paid_full">مدفوع بالكامل</option>
+          <option value="deposit">دفعة مقدمة</option>
+          <option value="unpaid">غير مدفوع</option>
+        </select>
+      </div>
+      <div class="vv-field"><label>ملاحظات</label><textarea id="bd-notes" rows="2"></textarea></div>
+    </div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 4 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-wizard-back-dynamic>رجوع</button>
+        <button class="btn btn--primary" data-wizard-next="details-to-travelers">التالي</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-travelers">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/></svg>
+        بيانات المسافرين
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-travelers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>اسم العميل الرئيسي</label><input type="text" id="tr-client-name" placeholder="اسم العميل" /></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>رقم الهاتف</label><input type="text" id="tr-phone" placeholder="01xxxxxxxxx" /></div>
+        <div class="vv-field"><label>البريد الالكتروني</label><input type="email" id="tr-email" placeholder="example@mail.com" /></div>
+      </div>
+      <div class="vv-field"><label>عدد المسافرين الاجمالي</label><input type="number" id="tr-total-pax" min="1" value="1" /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 5 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-wizard-back="modal-booking-details">رجوع</button>
+        <button class="btn btn--primary" data-wizard-next="travelers-to-review">مراجعة الحجز</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-review">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        مراجعة الحجز
+      </div>
+      <button class="vv-modal__close" data-close-modal="modal-review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body" id="review-body"></div>
+    <div class="vv-modal__footer">
+      <span class="wizard-steps-hint">خطوة 6 من 6</span>
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--ghost" data-wizard-back="modal-travelers">رجوع</button>
+        <button class="btn btn--primary" id="btn-save-central-sale">تأكيد الحجز وحفظه</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-confirmation">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">تأكيد الحجز</div>
+      <button class="vv-modal__close" data-close-modal="modal-confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="confirm-box">
+        <div class="confirm-box__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div>تم تأكيد الحجز واضافته للسجل المركزي بنجاح</div>
+        <div class="confirm-box__code" id="confirm-booking-code">BK-000000</div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <div class="vv-modal__footer-end">
+        <button class="btn btn--primary" data-close-modal="modal-confirmation">تم</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-quotes">
+  <div class="vv-modal vv-modal--wide">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">عروض الاسعار</div>
+      <button class="vv-modal__close" data-close-modal="modal-quotes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <button class="btn btn--primary" id="btn-toggle-quote-form">+ عرض سعر جديد</button>
+      </div>
+      <div id="quote-form-wrap" style="display:none; margin-bottom:16px;">
+        <div class="vv-field-row">
+          <div class="vv-field"><label>اسم العميل</label><input type="text" id="qt-client" /></div>
+          <div class="vv-field"><label>الخدمة</label><input type="text" id="qt-service" placeholder="مثال: باقة شرم الشيخ 4 ايام" /></div>
+        </div>
+        <div class="vv-field-row">
+          <div class="vv-field"><label>السعر المقترح</label><input type="number" id="qt-price" min="0" /></div>
+          <div class="vv-field"><label>صالح حتى</label><input type="date" id="qt-valid-until" /></div>
+        </div>
+        <div class="vv-field" style="max-width:220px;"><label>العملة</label>
+          <select id="qt-currency">
+            <option value="EGP">جنيه مصري (EGP)</option>
+            <option value="USD">دولار امريكي (USD)</option>
+            <option value="EUR">يورو (EUR)</option>
+            <option value="KWD">دينار كويتي (KWD)</option>
+            <option value="CAD">دولار كندي (CAD)</option>
+            <option value="CNY">يوان صيني (CNY)</option>
+            <option value="JPY">ين ياباني (JPY)</option>
+          </select>
+        </div>
+        <button class="btn btn--primary" id="btn-save-quote">حفظ العرض</button>
+      </div>
+      <div id="quotes-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-commissions">
+  <div class="vv-modal vv-modal--wide">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">العمولات والمستحقات</div>
+      <button class="vv-modal__close" data-close-modal="modal-commissions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="ledger-scroll" style="border:1px solid var(--border); border-radius:var(--radius-md);">
+        <table class="acc-table" style="min-width:0;">
+          <thead><tr><th>رقم الحجز</th><th>العميل</th><th>سعر البيع</th><th>التكلفة</th><th>العمولة (الربح)</th></tr></thead>
+          <tbody id="commissions-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-reports">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">التقارير</div>
+      <button class="vv-modal__close" data-close-modal="modal-reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="review-row"><span class="review-row__label">اجمالي عدد الحجوزات</span><span class="review-row__value" id="rp-count">0</span></div>
+      <div class="review-row"><span class="review-row__label">اجمالي المبيعات</span><span class="review-row__value" id="rp-sales">0</span></div>
+      <div class="review-row"><span class="review-row__label">اجمالي التكلفة</span><span class="review-row__value" id="rp-cost">0</span></div>
+      <div class="review-row"><span class="review-row__label">صافي الربح الاجمالي</span><span class="review-row__value" id="rp-profit">0</span></div>
+      <div class="review-row"><span class="review-row__label">متوسط قيمة الحجز</span><span class="review-row__value" id="rp-avg">0</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-customer-notes">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">ملاحظات العملاء</div>
+      <button class="vv-modal__close" data-close-modal="modal-customer-notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>اسم العميل</label><input type="text" id="cn-client" /></div>
+        <div class="vv-field"><label>الملاحظة</label><input type="text" id="cn-note" /></div>
+      </div>
+      <button class="btn btn--primary" id="btn-save-note" style="margin-bottom:14px;">حفظ الملاحظة</button>
+      <div id="notes-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-communication">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">التواصل مع العملاء</div>
+      <button class="vv-modal__close" data-close-modal="modal-communication"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>اسم العميل</label><input type="text" id="cm-client" /></div>
+        <div class="vv-field"><label>القناة</label>
+          <select id="cm-channel">
+            <option value="whatsapp">واتساب</option>
+            <option value="phone">مكالمة هاتفية</option>
+            <option value="email">بريد الكتروني</option>
+          </select>
+        </div>
+      </div>
+      <div class="vv-field"><label>ملخص المكالمة/الرسالة</label><textarea id="cm-summary" rows="2"></textarea></div>
+      <button class="btn btn--primary" id="btn-save-comm" style="margin-bottom:14px;">حفظ السجل</button>
+      <div id="comm-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="vv-modal-overlay" id="modal-sales-settings">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">اعدادات قسم المبيعات</div>
+      <button class="vv-modal__close" data-close-modal="modal-sales-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>نسبة العمولة الافتراضية (%)</label><input type="number" id="st-default-commission" min="0" max="100" /></div>
+      <div class="vv-field"><label>عملة العرض</label>
+        <select id="st-currency">
+          <option value="EGP">جنيه مصري (EGP)</option>
+            <option value="USD">دولار امريكي (USD)</option>
+            <option value="EUR">يورو (EUR)</option>
+            <option value="KWD">دينار كويتي (KWD)</option>
+            <option value="CAD">دولار كندي (CAD)</option>
+            <option value="CNY">يوان صيني (CNY)</option>
+            <option value="JPY">ين ياباني (JPY)</option>
+        </select>
+      </div>
+      <button class="btn btn--primary" id="btn-save-settings">حفظ الاعدادات</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    if (typeof VVComponents !== 'undefined') {
+      VVComponents.mount({ page: "sales", title: "قسم المبيعات" });
+    }
+  });
+</script>
+<script src="sales.js"></script>
+</body>
+</html>

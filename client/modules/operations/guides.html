@@ -6,6 +6,7 @@
 <title>Tour Guides | Voyvista ERP</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
 <script src="/client/assets/js/auth.js"></script>
 <script src="/client/assets/js/components.js"></script>
 <script src="/client/assets/js/router.js"></script>
@@ -59,7 +60,7 @@
       <div class="page-head">
         <div>
           <h1>Tour Guides</h1>
-          <p>سجل المرشدين السياحيين — الاسم، اللغة، ورقم التواصل</p>
+          <p>سجل المرشدين السياحيين - الاسم، اللغة، ورقم الهاتف</p>
         </div>
       </div>
 
@@ -69,8 +70,8 @@
           <input type="text" id="guides-search" placeholder="بحث بالاسم أو اللغة..." />
         </div>
         <div class="staff-actions">
-          <button type="button" class="btn btn--ghost" id="btn-export-guides-excel">📊 Excel/CSV</button>
-          <button type="button" class="btn btn--primary" id="btn-open-add-guide">+ إضافة مرشد سياحي</button>
+          <button type="button" class="btn btn--ghost" id="btn-export-guides-excel">Excel/CSV</button>
+          <button type="button" class="btn btn--primary" id="btn-open-add-guide">+ إضافة مرشد</button>
         </div>
       </div>
 

@@ -1,17 +1,17 @@
 /**
  * components.js
  * -----------------------------------------------------------------------
- * عناصر الواجهة المشتركة بين كل صفحات النظام: الـ Sidebar، الـ Topbar،
- * وزرار الـ AI Assist. كل صفحة بتستدعي VVComponents.mount(...) مرة واحدة
- * بعد ما الـ DOM يجهز.
+ * Shared UI elements across every page: Sidebar, Topbar, and the AI
+ * Assist button. Every page calls VVComponents.mount(...) once after
+ * the DOM is ready.
  *
- * يعتمد على: config.js (لازم يتحمّل قبله)
+ * Depends on: config.js (must load before this file)
  * -----------------------------------------------------------------------
  */
 
 const VVIcons = {
   dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>`,
-  flights: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 3.5L4 14l3 1 2-2.5 3 6 1.5-1L12 10l6-3.5c1-.6 1-2 0-2.6-.7-.4-1.5-.3-2.2.1L10.5 8"/></svg>`,
+  flights: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.53.5L4 14l3 1 2-2.5 3 6 1.5-1L12 10l6-3.5c1-.6 1-2 0-2.6-.7-.4-1.5-.3-2.2.1L10.5 8"/></svg>`,
   hotels: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15"/><path d="M14 10h6a1 1 0 0 1 1 1v10"/><path d="M7 9h1M7 13h1M10 9h1M10 13h1"/><path d="M3 21h18"/></svg>`,
   visas: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="2.2"/><path d="M14 9.5h5M14 12h5M14 14.5h3"/></svg>`,
   staff: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M15 20a4.5 4.5 0 0 1 8 0"/></svg>`,
@@ -47,55 +47,76 @@ const VVIcons = {
 };
 
 // -----------------------------------------------------------------------
-// Sidebar navigation map — each item declares which roles can see it.
-// allowedRoles: null = visible to every role.
+// Sidebar navigation map (regular roles)
 // -----------------------------------------------------------------------
 const VV_NAV = [
   {
     group: "Bookings",
     items: [
-      { key: "flights", label: "Flights", href: "/client/modules/operations/flights.html", icon: "flights", allowedRoles: null },
-      { key: "hotels", label: "Hotels", href: "/client/modules/operations/hotels.html", icon: "hotels", allowedRoles: null },
-      { key: "visas", label: "Visas", href: "/client/modules/operations/visas.html", icon: "visas", allowedRoles: null },
-      { key: "staff", label: "Staff", href: "/client/modules/operations/staff.html", icon: "staff", allowedRoles: null },
-      { key: "guides", label: "Tour Guides", href: "/client/modules/operations/guides.html", icon: "guides", allowedRoles: null },
-      { key: "cars", label: "Cars", href: "/client/modules/operations/cars.html", icon: "cars", allowedRoles: null },
-      { key: "events", label: "Events", href: "/client/modules/operations/events.html", icon: "events", allowedRoles: null },
+      { key: "flights", label: "Flights", href: "/client/modules/operations/flights.html", icon: "flights" },
+      { key: "hotels", label: "Hotels", href: "/client/modules/operations/hotels.html", icon: "hotels" },
+      { key: "visas", label: "Visas", href: "/client/modules/operations/visas.html", icon: "visas" },
+      { key: "staff", label: "Staff", href: "/client/modules/operations/staff.html", icon: "staff" },
+      { key: "guides", label: "Tour Guides", href: "/client/modules/operations/guides.html", icon: "guides" },
+      { key: "cars", label: "Cars", href: "/client/modules/operations/cars.html", icon: "cars" },
+      { key: "events", label: "Events", href: "/client/modules/operations/events.html", icon: "events" },
     ],
   },
   {
     group: "Operations",
     items: [
-      { key: "sales", label: "Sales", href: "/client/modules/sales_sheet/sales.html", icon: "sales", allowedRoles: null },
-      { key: "data", label: "Data", href: "/client/modules/master_data/data.html", icon: "data", allowedRoles: null },
-      { key: "accounts", label: "Accounts", href: "/client/modules/accounts/accounts.html", icon: "accounts", allowedRoles: null },
+      { key: "sales", label: "Sales", href: "/client/modules/operations/sales.html", icon: "sales" },
+      { key: "data", label: "Data", href: "/client/modules/master_data/data.html", icon: "data" },
+      { key: "accounts", label: "Accounts", icon: "accounts", children: [
+        { key: "acc_coa", label: "Chart of Accounts", href: "/client/modules/accounts/chart_of_accounts.html" },
+        { key: "acc_operations", label: "Operations", href: "/client/modules/accounts/operations.html" },
+        { key: "acc_expenses", label: "Expenses & Custody", href: "/client/modules/accounts/expenses.html" },
+        { key: "acc_treasury", label: "AR/AP & Treasury", href: "/client/modules/accounts/treasury.html" },
+        { key: "acc_invoicing", label: "Invoicing", href: "/client/modules/accounts/invoicing.html" },
+        { key: "acc_closing", label: "Monthly Closing", href: "/client/modules/accounts/monthly_closing.html" },
+        { key: "acc_reports", label: "Reports & Audit Log", href: "/client/modules/accounts/reports.html" },
+      ] },
     ],
   },
   {
     group: "Management",
     items: [
-      { key: "owner", label: "Owner Panel", href: "/client/modules/dashboard/owner.html", icon: "owner", allowedRoles: null },
-      { key: "it_dashboard", label: "IT Dashboard", href: "/client/modules/dashboard/it_dashboard.html", icon: "itDashboard", allowedRoles: null },
-      { key: "settings", label: "Settings", href: "/client/settings.html", icon: "settings", allowedRoles: null },
+      { key: "owner", label: "Owner Panel", href: "/client/modules/dashboard/owner.html", icon: "owner" },
+      { key: "it_dashboard", label: "IT Dashboard", href: "/client/modules/dashboard/it_dashboard.html", icon: "itDashboard", allowedRoles: ["ADMIN", "IT"] },
+      { key: "settings", label: "Settings", href: "/client/settings.html", icon: "settings" },
     ],
   },
 ];
 
+// -----------------------------------------------------------------------
+// Owner's own sidebar -- intentionally separate list, operational
+// sections only, no Sales/Accounts/IT Dashboard/Settings.
+// -----------------------------------------------------------------------
+const OWNER_SIDEBAR_ITEMS = [
+  { key: "flights", label: "Flights", href: "/client/modules/operations/flights.html", icon: "flights" },
+  { key: "hotels", label: "Hotels", href: "/client/modules/operations/hotels.html", icon: "hotels" },
+  { key: "visas", label: "Visas", href: "/client/modules/operations/visas.html", icon: "visas" },
+  { key: "staff", label: "Staff", href: "/client/modules/operations/staff.html", icon: "staff" },
+  { key: "guides", label: "Tour Guides", href: "/client/modules/operations/guides.html", icon: "guides" },
+  { key: "cars", label: "Cars", href: "/client/modules/operations/cars.html", icon: "cars" },
+  { key: "events", label: "Events", href: "/client/modules/operations/events.html", icon: "events" },
+  { key: "data", label: "Data", href: "/client/modules/master_data/data.html", icon: "data" },
+];
+
 const ROLE_LABELS = {
-  owner: "Owner",
-  it_manager: "IT Manager",
-  it_admin: "IT Admin",
-  manager: "Manager",
-  supervisor: "Supervisor",
-  employee: "Employee",
+  ADMIN: "System Administrator",
+  OWNER: "Owner",
+  IT: "IT",
+  ACCOUNTANT: "Accountant",
+  OPERATIONS: "Operations Staff",
+  SALES: "Sales Executive",
 };
 
+// Keys of Accounts submodule pages -- used so the Accounts group starts
+// expanded automatically when the user is already on one of its pages.
+const ACCOUNTS_CHILD_KEYS = ["acc_operations", "acc_expenses", "acc_treasury", "acc_invoicing", "acc_closing", "acc_reports"];
+
 const VVComponents = (() => {
-  /**
-   * Returns the current user's data from localStorage (saved by auth.js
-   * after login). If no user is stored yet, returns a demo fallback user
-   * so page layouts render naturally before auth.js is wired up.
-   */
   function getCurrentUser() {
     try {
       const raw = localStorage.getItem(VV_CONFIG.STORAGE_KEYS.USER);
@@ -103,15 +124,9 @@ const VVComponents = (() => {
     } catch (e) {
       /* ignore parsing errors */
     }
-    // TODO(auth.js): remove this fallback once the login flow is live
-    return { id: 0, full_name: "Demo User", role: "employee", department: "—" };
+    return { id: 0, full_name: "User", role: "OPERATIONS" };
   }
 
-  /**
-   * Returns the locally cached company logo URL after the last upload from
-   * settings.html (updated via SETTINGS_LOGO_UPLOAD in config.js). Returns
-   * null if nothing has been uploaded yet, so the default mark is used.
-   */
   function getCompanyLogo() {
     try {
       return localStorage.getItem(VV_CONFIG.STORAGE_KEYS.COMPANY_LOGO) || null;
@@ -126,50 +141,43 @@ const VVComponents = (() => {
     return parts.slice(0, 2).map((p) => p[0]).join("");
   }
 
-  // Reads vv_employees directly from localStorage rather than calling
-  // window.VVEmployees — employees.js is only loaded on Owner Panel and
-  // IT Dashboard today, but every page needs this per-employee
-  // restriction check to actually work, so this can't depend on that
-  // file being present. Matches the exact same object shape
-  // employees.js itself writes.
-  //
-  // Matches by username first (the intended, unambiguous link), falling
-  // back to full_name — vv_user's shape historically had no username
-  // field at all (just { id, full_name, email, role, department }), so
-  // any session created before this restriction feature existed still
-  // needs a working match instead of silently losing its restriction.
-  function getCurrentEmployeeRecord(user) {
-    if (!user) return null;
-    try {
-      const rows = JSON.parse(localStorage.getItem("vv_employees")) || [];
-      if (user.username) {
-        const byUsername = rows.find((e) => e.username && e.username.toLowerCase() === String(user.username).toLowerCase());
-        if (byUsername) return byUsername;
-      }
-      if (user.full_name) {
-        return rows.find((e) => e.fullName && e.fullName.toLowerCase() === String(user.full_name).toLowerCase()) || null;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+  function renderLink(item, activePage) {
+    const activeClass = item.key === activePage ? " is-active" : "";
+    return `
+      <a class="nav-link${activeClass}" href="${item.href}" data-page="${item.key}">
+        ${VVIcons[item.icon] || ""}
+        <span>${item.label}</span>
+      </a>`;
   }
 
-  function buildNavHTML(activePage, role, user) {
-    const employeeRecord = getCurrentEmployeeRecord(user);
-    // null/undefined allowedModules = no extra restriction (original
-    // behavior, unchanged). An array — even an empty one — means this
-    // specific employee is explicitly restricted to ONLY those module
-    // keys, on top of whatever the role itself already allows.
-    const restrictedModules = employeeRecord && Array.isArray(employeeRecord.allowedModules)
-      ? employeeRecord.allowedModules
-      : null;
+  // Renders a single item -- either a plain link, or (when `children` is
+  // present) an expandable Accordion group: a toggle row with a chevron
+  // that flips, and its child links indented underneath. Auto-expands
+  // when the current page is one of its own children, so navigating
+  // directly to a sub-page never hides itself.
+  function renderNavItem(item, activePage) {
+    if (!item.children) return renderLink(item, activePage);
 
+    const isChildActive = item.children.some((child) => child.key === activePage);
+    const childLinks = item.children.map((child) => renderLink(child, activePage)).join("");
+
+    return `
+      <div class="nav-accordion${isChildActive ? " is-expanded" : ""}" data-accordion-key="${item.key}">
+        <button type="button" class="nav-link nav-accordion__toggle" data-accordion-toggle="${item.key}">
+          ${VVIcons[item.icon] || ""}
+          <span>${item.label}</span>
+          <span class="nav-accordion__chevron">${VVIcons.chevronDown}</span>
+        </button>
+        <div class="nav-accordion__panel">
+          ${childLinks}
+        </div>
+      </div>`;
+  }
+
+  function buildNavHTML(activePage, role) {
     return VV_NAV.map((section) => {
       const visibleItems = section.items.filter((item) => {
-        const roleOk = !item.allowedRoles || item.allowedRoles.includes(role);
-        const moduleOk = !restrictedModules || restrictedModules.includes(item.key);
-        return roleOk && moduleOk;
+        return !item.allowedRoles || item.allowedRoles.includes(role);
       });
       if (visibleItems.length === 0) return "";
 
@@ -177,19 +185,45 @@ const VVComponents = (() => {
         ? `<div class="sidebar__group-label">${section.group}</div>`
         : "";
 
-      const links = visibleItems
-        .map((item) => {
-          const activeClass = item.key === activePage ? " is-active" : "";
-          return `
-            <a class="nav-link${activeClass}" href="${item.href}" data-page="${item.key}">
-              ${VVIcons[item.icon] || ""}
-              <span>${item.label}</span>
-            </a>`;
-        })
-        .join("");
+      const links = visibleItems.map((item) => renderNavItem(item, activePage)).join("");
 
       return groupLabel + links;
     }).join("");
+  }
+
+  function wireAccordionToggles(container) {
+    container.querySelectorAll("[data-accordion-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wrapper = btn.closest(".nav-accordion");
+        if (wrapper) wrapper.classList.toggle("is-expanded");
+      });
+    });
+  }
+
+  // Owner's own sidebar: a fixed "Back to Owner Panel" link at the top,
+  // then only the operational sections -- deliberately its own separate
+  // list (OWNER_SIDEBAR_ITEMS), not filtered from VV_NAV, so it never
+  // accidentally picks up Sales/Accounts/IT Dashboard/Settings if those
+  // lists change later.
+  function renderOwnerSidebar(activePage) {
+    const mountEl = document.getElementById("app-sidebar");
+    if (!mountEl) return;
+
+    const links = OWNER_SIDEBAR_ITEMS.map((item) => renderLink(item, activePage)).join("");
+
+    mountEl.innerHTML = `
+      <div class="sidebar">
+        <a href="/client/modules/dashboard/owner.html" style="display:flex; align-items:center; gap:9px; padding:14px 18px; margin:10px 12px 6px; background:var(--ink); color:var(--gold); border-radius:8px; text-decoration:none; font-size:12.5px; font-weight:700;">
+          ${VVIcons.arrowLeft}
+          <span>Back to Owner Panel</span>
+        </a>
+        <div class="stub-divider"></div>
+        <nav class="sidebar__nav">
+          <div class="sidebar__group-label">Operations</div>
+          ${links}
+        </nav>
+      </div>
+    `;
   }
 
   function renderSidebar(activePage) {
@@ -197,9 +231,14 @@ const VVComponents = (() => {
     if (!mountEl) return;
 
     const user = getCurrentUser();
+
+    if (user.role === "OWNER") {
+      renderOwnerSidebar(activePage);
+      return;
+    }
+
     const roleLabel = ROLE_LABELS[user.role] || user.role;
     const logoUrl = getCompanyLogo();
-    // لو الأدمن رفع لوجو من settings.html بيتعرض هنا، غير كده يتعرض الشعار الافتراضي
     const brandMarkInner = logoUrl
       ? `<img src="${logoUrl}" alt="Company logo" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" />`
       : VVIcons.flights;
@@ -217,7 +256,7 @@ const VVComponents = (() => {
         </div>
         <div class="stub-divider"></div>
         <nav class="sidebar__nav">
-          ${buildNavHTML(activePage, user.role, user)}
+          ${buildNavHTML(activePage, user.role)}
         </nav>
         <div class="stub-divider"></div>
         <div class="sidebar__footer">
@@ -229,6 +268,8 @@ const VVComponents = (() => {
         </div>
       </div>
     `;
+
+    wireAccordionToggles(mountEl);
   }
 
   function renderTopbar({ title } = {}) {
@@ -257,9 +298,6 @@ const VVComponents = (() => {
           ${VVIcons.bell}
           <span class="dot"></span>
         </button>
-        <select id="vv-role-switcher" title="Switch role (testing aid — no real login exists yet)" style="font-size:11px; font-weight:600; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text-soft); cursor:pointer;">
-          ${Object.entries(ROLE_LABELS).map(([val, label]) => `<option value="${val}" ${user.role === val ? "selected" : ""}>${label}</option>`).join("")}
-        </select>
         <div class="topbar__profile">
           <div class="sidebar__user-avatar" style="background:var(--gold-soft);color:var(--gold-deep);">
             ${initials(user.full_name)}
@@ -271,16 +309,10 @@ const VVComponents = (() => {
         </div>
       </div>
     `;
-
-    document.getElementById("vv-role-switcher")?.addEventListener("change", (e) => {
-      const updatedUser = { ...user, role: e.target.value };
-      localStorage.setItem(VV_CONFIG.STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-      window.location.reload();
-    });
   }
 
   function renderAIButton() {
-    if (document.querySelector(".ai-fab")) return; // avoid duplicates
+    if (document.querySelector(".ai-fab")) return;
 
     const wrapper = document.createElement("div");
     wrapper.innerHTML = `
@@ -332,12 +364,6 @@ const VVComponents = (() => {
     });
   }
 
-  /**
-   * بيبني الـ HTML بتاع شاشة الـ 3 Action Hubs (الفواتير / الحجوزات / البيانات
-   * الخاصة) اللي بتتكرر في flights/hotels/visas/accounts/sales.
-   * hubs: [{ key, title, desc, icon, colorClass }]
-   * كل صفحة بتعمل event delegation على data-hub-key عشان تفتح الهب المناسب.
-   */
   function buildHubGrid(hubs) {
     return `
       <div class="hub-grid">
@@ -358,7 +384,6 @@ const VVComponents = (() => {
     `;
   }
 
-  /** Hub view header once inside it (back button + title) */
   function buildHubViewHead({ title, subtitle }) {
     return `
       <div class="hub-view-head">
@@ -371,49 +396,14 @@ const VVComponents = (() => {
     `;
   }
 
-  /** رسالة تنبيه inline لما الـ API مش شغال لسه (Backend لسه بيتبني) */
   function buildInlineNotice(message) {
     return `<div class="inline-notice">${VVIcons.alert}<span>${message}</span></div>`;
-  }
-
-  /**
-   * نقطة الدخول الموحدة لكل صفحة:
-   * VVComponents.mount({ page: "dashboard", title: "الرئيسية" });
-   */
-  const BROADCAST_COLORS = {
-    info: { bg: "#E7EEFD", fg: "#3068E0" },
-    warning: { bg: "#F5EBD3", fg: "#8C6A22" },
-    critical: { bg: "#FDE8E8", fg: "#C0392B" },
-  };
-
-  function renderActiveBroadcast() {
-    let broadcast = null;
-    try { broadcast = JSON.parse(localStorage.getItem("vv_active_broadcast")); } catch (e) { /* ignore */ }
-
-    let banner = document.getElementById("vv-broadcast-banner");
-    if (!broadcast || !broadcast.message) {
-      if (banner) banner.remove();
-      return;
-    }
-
-    const colors = BROADCAST_COLORS[broadcast.level] || BROADCAST_COLORS.info;
-    if (!banner) {
-      banner = document.createElement("div");
-      banner.id = "vv-broadcast-banner";
-      banner.style.cssText = "padding:10px 20px; font-size:12.5px; font-weight:600; text-align:center; position:sticky; top:0; z-index:60;";
-      document.body.insertBefore(banner, document.body.firstChild);
-    }
-    banner.style.background = colors.bg;
-    banner.style.color = colors.fg;
-    banner.textContent = broadcast.message;
   }
 
   function mount({ page, title } = {}) {
     renderSidebar(page);
     renderTopbar({ title });
     renderAIButton();
-    renderActiveBroadcast();
-    window.addEventListener("storage", renderActiveBroadcast);
   }
 
   return { mount, getCurrentUser, getCompanyLogo, buildHubGrid, buildHubViewHead, buildInlineNotice };
