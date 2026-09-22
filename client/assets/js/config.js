@@ -10,7 +10,9 @@
 
 const VV_CONFIG = {
   // Change this line only when switching between local and production
-  BASE_URL: "http://localhost:8000/api",
+  BASE_URL: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ? "http://127.0.0.1:8000/api"
+    : window.location.origin + "/api",
 
   ENDPOINTS: {
     // --- Auth (Token auth via rest_framework.authtoken, not JWT) ---
