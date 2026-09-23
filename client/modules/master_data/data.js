@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   var MODULE_TITLES = { b2b: "B2B - Company Accounts", b2c: "B2C - Individual & Family Accounts", accounting: "Accounting - Sales Report & Analysis" };
@@ -96,8 +96,8 @@
 
   async function loadParties(category) {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.PARTIES + "?type=customer&client_category=" + category);
-      allPartiesCache = result.data.results || result.data;
+      allPartiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES + "?type=customer&client_category=" + category);
+    } catch (err) {
     } catch (err) {
       allPartiesCache = [];
     }
