@@ -494,10 +494,10 @@
 
   async function loadHotels() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.HOTELS_DIRECTORY);
-      hotelsCache = result.data.results || result.data;
+      hotelsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.HOTELS_DIRECTORY);
     } catch (err) { hotelsCache = []; }
     renderHotelGrid();
+  }
   }
 
   function starsHtml(rating) {
