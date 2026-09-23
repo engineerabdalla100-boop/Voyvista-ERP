@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   function escapeHtml(value) {
@@ -95,8 +95,8 @@
 
   async function loadAccounts() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
-      accountsCache = result.data.results || result.data;
+      accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
+      populateAccountSelects();
       populateAccountSelects();
     } catch (err) { /* silent */ }
   }
@@ -358,8 +358,8 @@
 
   async function loadTemplates() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES + "?active_only=true");
-      templatesCache = result.data.results || result.data;
+      templatesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES + "?active_only=true");
+    } catch (err) { templatesCache = []; }
     } catch (err) { templatesCache = []; }
     renderTemplatesTable();
   }
@@ -556,8 +556,8 @@
 
   async function loadCustody() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.CUSTODY);
-      custodyCache = result.data.results || result.data;
+      custodyCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.CUSTODY);
+    } catch (err) { custodyCache = []; }
     } catch (err) { custodyCache = []; }
     renderCustodyTable();
     renderKpiCards();

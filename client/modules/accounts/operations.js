@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   function escapeHtml(value) {
@@ -49,8 +49,8 @@
 
   async function loadAccounts() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
-      accountsCache = result.data.results || result.data;
+      accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
+      var options = function (list) { return list.map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; }).join(""); };
       var options = function (list) { return list.map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; }).join(""); };
 
       document.getElementById("ap-ar-account").innerHTML = options(accountsCache.filter(function (a) { return a.type === "asset"; }));
@@ -151,8 +151,8 @@
 
   async function loadLocked() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.BOOKINGS + "?record_status=active");
-      var allBookings = result.data.results || result.data;
+      var allBookings = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.BOOKINGS + "?record_status=active");
+      lockedCache = allBookings.filter(function (b) { return b.accounting_status === "locked"; });
       lockedCache = allBookings.filter(function (b) { return b.accounting_status === "locked"; });
 
       for (var i = 0; i < lockedCache.length; i++) {

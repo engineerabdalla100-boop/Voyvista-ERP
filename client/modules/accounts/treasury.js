@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   function escapeHtml(value) {
@@ -101,8 +101,8 @@
 
   async function loadAccounts() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
-      accountsCache = result.data.results || result.data;
+      accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
+      var treasuryAccounts = accountsCache.filter(function (a) { return a.type === "asset"; });
       var treasuryAccounts = accountsCache.filter(function (a) { return a.type === "asset"; });
       var controlAccounts = accountsCache.filter(function (a) { return a.type === "asset" || a.type === "liability"; });
       var options = function (list) { return list.map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; }).join(""); };
@@ -120,8 +120,8 @@
 
   async function loadParties() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.PARTIES);
-      partiesCache = result.data.results || result.data;
+      partiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES);
+      document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
       document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
         return "<option value=\"" + p.id + "\">" + escapeHtml(p.full_name) + " (" + escapeHtml(p.code) + ")</option>";
       }).join("");
@@ -157,8 +157,8 @@
 
   async function loadVouchers() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.VOUCHERS);
-      vouchersCache = result.data.results || result.data;
+      vouchersCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.VOUCHERS);
+    } catch (err) { vouchersCache = []; }
     } catch (err) { vouchersCache = []; }
     renderVouchersTable();
     renderKpiCards();
@@ -411,8 +411,8 @@
 
   async function loadParties() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.PARTIES);
-      partiesCache = result.data.results || result.data;
+      partiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES);
+      document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
       document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
         return "<option value=\"" + p.id + "\">" + escapeHtml(p.full_name) + " (" + escapeHtml(p.code) + ")</option>";
       }).join("");

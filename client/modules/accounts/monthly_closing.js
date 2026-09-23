@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   function fmtMoney(n) {
@@ -129,8 +129,8 @@
 
   async function loadArchive() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.FINANCIAL_PERIODS);
-      archiveCache = result.data.results || result.data;
+      archiveCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.FINANCIAL_PERIODS);
+    } catch (err) { archiveCache = []; }
     } catch (err) { archiveCache = []; }
     renderArchiveTable();
   }

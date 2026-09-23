@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   function escapeHtml(value) {
@@ -112,8 +112,8 @@
 
   async function loadAccountsForLedger() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
-      var accounts = result.data.results || result.data;
+      var accounts = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
+      document.getElementById("ledger-account").innerHTML = accounts.map(function (a) {
       document.getElementById("ledger-account").innerHTML = accounts.map(function (a) {
         return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>";
       }).join("");

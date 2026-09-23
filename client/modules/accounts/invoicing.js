@@ -50,7 +50,7 @@
 
   async function loadAccounts() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
+      accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
       accountsCache = result.data.results || result.data;
       var options = function (list) { return list.map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; }).join(""); };
       document.getElementById("issue-ar-account").innerHTML = options(accountsCache.filter(function (a) { return a.type === "asset"; }));
@@ -60,7 +60,7 @@
 
   async function loadParties() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.PARTIES);
+      partiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES);
       partiesCache = result.data.results || result.data;
       document.getElementById("inv-party").innerHTML = partiesCache.map(function (p) {
         return "<option value=\"" + p.id + "\">" + escapeHtml(p.full_name) + " (" + escapeHtml(p.code) + ")</option>";
@@ -74,7 +74,7 @@
 
   async function loadInvoices() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.INVOICES);
+      invoicesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.INVOICES);
       invoicesCache = result.data.results || result.data;
     } catch (err) { invoicesCache = []; }
     renderInvoicesTable();

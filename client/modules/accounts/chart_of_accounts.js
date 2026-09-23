@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   function escapeHtml(value) {
@@ -56,9 +56,9 @@
 
   async function loadAccounts() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
-      accountsCache = result.data.results || result.data;
+      accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
       populateParentSelect();
+    } catch (err) { accountsCache = []; }
     } catch (err) { accountsCache = []; }
     renderTable();
   }
