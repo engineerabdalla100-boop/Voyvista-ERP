@@ -1,4 +1,4 @@
-/**
+﻿/**
  * components.js
  * -----------------------------------------------------------------------
  * Shared UI elements across every page: Sidebar, Topbar, and the AI
@@ -175,9 +175,18 @@ const VVComponents = (() => {
   }
 
   function buildNavHTML(activePage, role) {
+    const user = getCurrentUser();
+    // allowed_modules is null/undefined for roles that should see
+    // everything (Admin, Owner, IT); for a regular employee it's an
+    // explicit array of module keys set by the admin, and anything
+    // not in that list must not render in the sidebar at all.
+    const hasModuleRestriction = Array.isArray(user.allowed_modules);
+
     return VV_NAV.map((section) => {
       const visibleItems = section.items.filter((item) => {
-        return !item.allowedRoles || item.allowedRoles.includes(role);
+        if (item.allowedRoles && !item.allowedRoles.includes(role)) return false;
+        if (hasModuleRestriction && !user.allowed_modules.includes(item.key)) return false;
+        return true;
       });
       if (visibleItems.length === 0) return "";
 

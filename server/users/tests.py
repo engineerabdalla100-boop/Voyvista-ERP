@@ -301,3 +301,76 @@ class TokenExpirationTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
         res = self.client.get("/api/auth/me/")
         self.assertEqual(res.status_code, 200)
+
+
+class LiveDisableCheckTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="live_disable_user", email="live_disable_user@test.local", password="pass12345", role="OPERATIONS")
+        res = self.client.post("/api/auth/login/", {"username": "live_disable_user", "password": "pass12345"})
+        self.token = res.data["token"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token}")
+
+    def test_active_session_works_before_disable(self):
+        res = self.client.get("/api/auth/me/")
+        self.assertEqual(res.status_code, 200)
+
+    def test_existing_token_rejected_immediately_after_disable(self):
+        # Confirm the session works first.
+        res = self.client.get("/api/auth/me/")
+        self.assertEqual(res.status_code, 200)
+
+        # Disable the account -- simulating what "Disable User" does.
+        self.user.deactivate_employee()
+
+        # The SAME token, already issued before the disable, must now
+        # be rejected on the very next request -- not just future logins.
+        res = self.client.get("/api/auth/me/")
+        self.assertEqual(res.status_code, 401)
+
+    def test_token_is_deleted_after_disable_rejection(self):
+        self.user.deactivate_employee()
+        self.client.get("/api/auth/me/")
+
+        from rest_framework.authtoken.models import Token
+        self.assertFalse(Token.objects.filter(key=self.token).exists())
+
+    def test_reactivated_account_needs_fresh_login(self):
+        from django.core.cache import cache
+        cache.clear()
+
+        self.user.deactivate_employee()
+        self.client.get("/api/auth/me/")  # token gets deleted here
+
+        self.user.activate_employee()
+
+        # Old token is gone -- must log in again to get a new one.
+        res = self.client.get("/api/auth/me/")
+        self.assertEqual(res.status_code, 401)
+
+        self.client.credentials()  # clear the stale/deleted token, same as clearing localStorage would
+        login_res = self.client.post("/api/auth/login/", {"username": "live_disable_user", "password": "pass12345"})
+        self.assertEqual(login_res.status_code, 200)
+
+
+class LoginReturnsAllowedModulesTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_login_response_includes_allowed_modules(self):
+        User.objects.create_user(
+            username="restricted_emp", email="restricted_emp@test.local", password="pass12345",
+            role="OPERATIONS", allowed_modules=["flights", "hotels"],
+        )
+        res = self.client.post("/api/auth/login/", {"username": "restricted_emp", "password": "pass12345"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["user"]["allowed_modules"], ["flights", "hotels"])
+
+    def test_login_response_null_when_no_restriction(self):
+        User.objects.create_user(
+            username="unrestricted_emp", email="unrestricted_emp@test.local", password="pass12345",
+            role="ADMIN",
+        )
+        res = self.client.post("/api/auth/login/", {"username": "unrestricted_emp", "password": "pass12345"})
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.data["user"]["allowed_modules"])

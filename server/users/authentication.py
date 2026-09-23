@@ -17,6 +17,17 @@ class LastSeenTokenAuthentication(TokenAuthentication):
             user, token = result
             now = timezone.now()
 
+            # Live re-check on every request: a disabled account's token
+            # is revoked immediately, even if it was already issued
+            # before the account was disabled. Without this, "Disable
+            # User" only blocks future logins -- an already-signed-in
+            # session would otherwise keep working until it naturally
+            # expired or was manually revoked.
+            if not user.is_active_employee or not user.is_active:
+                token.delete()
+                from rest_framework.exceptions import AuthenticationFailed
+                raise AuthenticationFailed("This account has been disabled.")
+
             if user.last_seen is not None and (now - user.last_seen).total_seconds() >= IDLE_TIMEOUT_SECONDS:
                 token.delete()
                 from rest_framework.exceptions import AuthenticationFailed
