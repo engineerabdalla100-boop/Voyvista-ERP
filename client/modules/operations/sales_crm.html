@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CRM المبيعات B2B | Voyvista ERP</title>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+
+  .crm-tabs { display: flex; gap: 6px; background: var(--canvas); padding: 5px; border-radius: var(--radius-md); border: 1px solid var(--border); flex-wrap: wrap; margin-bottom: 20px; }
+  .crm-tab-btn { padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--text-soft); cursor: pointer; border: none; background: transparent; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+  .crm-tab-btn.is-active { background: var(--surface); color: var(--gold-deep); box-shadow: var(--shadow-sm); }
+
+  .crm-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .crm-stats { display: flex; gap: 14px; font-size: 12px; font-weight: 700; color: var(--text-soft); background: var(--surface); padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .crm-stats b { color: var(--gold-deep); }
+
+  .kanban-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .kanban-col { background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; min-height: 400px; }
+  .kanban-col__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .kanban-col__title { font-size: 11.5px; font-weight: 700; }
+  .kanban-col__count { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 20px; background: var(--surface); }
+
+  .deal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: var(--shadow-sm); cursor: pointer; }
+  .deal-card:hover { border-color: var(--gold); }
+  .deal-card__name { font-weight: 700; font-size: 12.5px; margin-bottom: 4px; }
+  .deal-card__meta { font-size: 11px; color: var(--text-faint); margin-bottom: 8px; }
+  .deal-card__value { font-size: 13px; font-weight: 800; color: var(--emerald); margin-bottom: 8px; }
+  .deal-card__actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .deal-card__actions a, .deal-card__actions button { font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--canvas); color: var(--text-soft); cursor: pointer; text-decoration: none; }
+  .deal-card__actions a.wa-link { border-color: #1F9D6E; color: #1F9D6E; }
+  .deal-card__actions a.mail-link { border-color: #3068E0; color: #3068E0; }
+  .deal-card select.stage-move { font-size: 10.5px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); margin-top: 6px; width: 100%; }
+
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 560px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; flex: 1; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; width: 100%; box-sizing: border-box; }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 12px; }
+  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .status-badge--pending { background: var(--amber-soft); color: var(--amber); }
+  .status-badge--posted { background: var(--emerald-soft); color: var(--emerald); }
+
+  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>CRM المبيعات B2B</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">إدارة صفقات الشركات، المتابعات، والربط التلقائي بالتشغيل والمحاسبة</p>
+        </div>
+      </div>
+
+      <div class="crm-tabs">
+        <button class="crm-tab-btn is-active" data-crm-tab="pipeline">صفقات B2B</button>
+        <button class="crm-tab-btn" data-crm-tab="tasks">المهام والتذكيرات</button>
+        <button class="crm-tab-btn" data-crm-tab="contacts">دليل الشركات</button>
+        <button class="crm-tab-btn" data-crm-tab="ops">الحجوزات والعمليات</button>
+      </div>
+
+      <!-- ============================= TAB: PIPELINE ============================= -->
+      <div id="crm-view-pipeline">
+        <div class="crm-toolbar">
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn--primary" id="btn-open-add-deal" type="button">+ صفقة جديدة</button>
+            <button class="btn btn--ghost" id="btn-open-log-activity" type="button">تسجيل نشاط وتذكير</button>
+          </div>
+          <div class="crm-stats">
+            <span>إجمالي الصفقات: <b id="crm-total-deals">0</b></span>
+            <span>القيمة المتوقعة: <b id="crm-total-value">0 ج.م</b></span>
+          </div>
+        </div>
+
+        <div class="kanban-grid" id="kanban-grid"></div>
+      </div>
+
+      <!-- ============================= TAB: TASKS ============================= -->
+      <div id="crm-view-tasks" style="display:none;">
+        <div class="ledger-scroll">
+          <table class="ledger" id="tasks-table">
+            <thead><tr><th>الشركة / الصفقة</th><th>نوع المتابعة</th><th>موعد التذكير</th><th>الملاحظة</th></tr></thead>
+            <tbody id="tasks-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="tasks-empty" style="display:none;"><p>لا توجد متابعات مسجّلة بعد.</p></div>
+      </div>
+
+      <!-- ============================= TAB: CONTACTS ============================= -->
+      <div id="crm-view-contacts" style="display:none;">
+        <div class="ledger-scroll">
+          <table class="ledger" id="contacts-table">
+            <thead><tr><th>اسم الشركة</th><th>المسؤول</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>تواصل سريع</th></tr></thead>
+            <tbody id="contacts-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="contacts-empty" style="display:none;"><p>لا توجد شركات مسجّلة بعد.</p></div>
+      </div>
+
+      <!-- ============================= TAB: OPS ============================= -->
+      <div id="crm-view-ops" style="display:none;">
+        <div class="ledger-scroll">
+          <table class="ledger" id="ops-table">
+            <thead><tr><th>كود الحجز</th><th>الشركة</th><th>نوع الخدمة</th><th class="num">سعر البيع</th><th class="num">التكلفة</th><th class="num">الربح</th><th>حالة المحاسب</th></tr></thead>
+            <tbody id="ops-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="ops-empty" style="display:none;"><p>لا توجد عمليات صادرة من صفقات بعد.</p></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ADD DEAL MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-add-deal">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">صفقة B2B جديدة</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-deal" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>اسم الشركة</label><input type="text" id="deal-company-name" placeholder="شركة النور للبرمجيات" /></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>اسم المسؤول</label><input type="text" id="deal-contact-name" placeholder="أ. أسامة" /></div>
+        <div class="vv-field"><label>رقم الهاتف / واتساب</label><input type="text" id="deal-contact-phone" placeholder="01000000000" /></div>
+      </div>
+      <div class="vv-field"><label>البريد الإلكتروني</label><input type="email" id="deal-contact-email" placeholder="osama@company.com" /></div>
+      <div class="vv-field-row">
+        <div class="vv-field">
+          <label>نوع الخدمة</label>
+          <select id="deal-service-type">
+            <option value="رحلة جماعية Corporate">رحلة جماعية Corporate</option>
+            <option value="حجز فنادق وتأشيرات">حجز فنادق وتأشيرات</option>
+            <option value="تذاكر طيران B2B">تذاكر طيران B2B</option>
+          </select>
+        </div>
+        <div class="vv-field"><label>القيمة التقديرية (ج.م)</label><input type="number" min="0" id="deal-value" value="0" step="0.01" /></div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-deal" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-deal" type="button">حفظ الصفقة</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= LOG ACTIVITY MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-log-activity">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">تسجيل نشاط وتذكير</div>
+      <button class="vv-modal__close" data-close-modal="modal-log-activity" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>اختر الصفقة</label><select id="log-deal-select"></select></div>
+      <div class="vv-field">
+        <label>وسيلة التواصل</label>
+        <select id="log-activity-type">
+          <option value="whatsapp">واتساب</option>
+          <option value="call">مكالمة هاتفية</option>
+          <option value="email">بريد إلكتروني</option>
+          <option value="visit">زيارة ميدانية</option>
+        </select>
+      </div>
+      <div class="vv-field"><label>ملخص التواصل</label><textarea id="log-activity-note" rows="3" placeholder="تم الاتفاق على إرسال عرض أسعار جديد..."></textarea></div>
+      <div class="vv-field"><label>موعد تذكير المتابعة (اختياري)</label><input type="datetime-local" id="log-activity-reminder" /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-log-activity" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-activity" type="button">تسجيل ومتابعة</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "sales", title: "CRM المبيعات" });
+  });
+</script>
+<script src="/client/modules/operations/sales_crm.js"></script>
+</body>
+</html>
