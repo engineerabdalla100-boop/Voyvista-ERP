@@ -72,6 +72,7 @@ const VV_CONFIG = {
     DEAL_DETAIL: (id) => `/deals/${id}/`,
     DEAL_MOVE_STAGE: (id) => `/deals/${id}/move_stage/`,
     ACTIVITIES: "/activities/",
+    PARTY_HISTORY: (id) => `/parties/${id}/history/`,
     PARTY_LINK_ALIAS: (id) => `/parties/${id}/link_alias/`,
     OPERATIONS_PENDING: "/operations/pending/",
     OPERATIONS_APPROVE: (id) => `/operations/${id}/approve/`,

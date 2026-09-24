@@ -123,6 +123,21 @@
   .page-header p { font-size: 13px; color: var(--text-soft); margin-top: 5px; }
 
   @media (max-width: 1100px) { .package-grid { grid-template-columns: 1fr; } .top-metrics-grid { grid-template-columns: 1fr; } }
+  .history-panel-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.35); z-index: 90; display: none; }
+  .history-panel-overlay.is-open { display: block; }
+  .history-panel { position: fixed; top: 0; bottom: 0; inset-inline-end: 0; width: 420px; max-width: 92vw; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 91; transform: translateX(105%); transition: transform 0.22s ease; display: flex; flex-direction: column; }
+  [dir="rtl"] .history-panel { transform: translateX(-105%); }
+  .history-panel-overlay.is-open .history-panel { transform: translateX(0); }
+  .history-panel__header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .history-panel__title { font-weight: 700; font-size: 15px; }
+  .history-panel__code { font-size: 11.5px; color: var(--text-faint); font-family: monospace; margin-top: 2px; }
+  .history-panel__close { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .history-panel__body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .history-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .history-item__dept { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--gold-deep); background: var(--gold-soft); display: inline-block; padding: 2px 8px; border-radius: 20px; margin-bottom: 6px; }
+  .history-item__title { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; }
+  .history-item__meta { font-size: 11px; color: var(--text-faint); }
+  .history-empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 12.5px; }
 </style>
 </head>
 <body>
@@ -157,7 +172,7 @@
           <button class="package-card package-card--accounting" id="pkg-accounting" type="button" style="display:none;">
             <div class="package-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
             <div class="package-card__title">Accounting</div>
-            <div class="package-card__desc">Sales report, review status, and supplier analysis - IT/Owner/ACC/Admin only</div>
+            <div class="package-card__desc">Sales report, review status, and supplier analysis</div>
           </button>
         </div>
       </div>
@@ -220,5 +235,21 @@
   });
 </script>
 <script src="/client/modules/master_data/data.js"></script>
+<!-- ============================= CUSTOMER HISTORY PANEL ============================= -->
+<div class="history-panel-overlay" id="history-panel-overlay">
+  <div class="history-panel">
+    <div class="history-panel__header">
+      <div>
+        <div class="history-panel__title" id="history-panel-name">-</div>
+        <div class="history-panel__code" id="history-panel-code">-</div>
+      </div>
+      <button class="history-panel__close" id="history-panel-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="history-panel__body" id="history-panel-body"></div>
+  </div>
+</div>
+
 </body>
 </html>

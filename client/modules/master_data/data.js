@@ -121,6 +121,7 @@
           "<label class=\"filter-chip\"><input type=\"checkbox\" id=\"fam-filter-birthday\" style=\"width:14px;height:14px;\" /> Upcoming birthdays (30 days)</label>" +
         "</div>" +
         "<button class=\"btn btn--primary\" id=\"btn-toggle-add-fam\" type=\"button\">+ Add new " + (category === "b2b" ? "company" : "customer") + "</button>" +
+        "<button class=\"btn btn--ghost\" id=\"btn-export-fam-csv\" type=\"button\" style=\"margin-inline-start:8px;\">Export Excel/CSV</button>" +
       "</div>" +
       "<div id=\"add-fam-form-wrap\" style=\"display:none; margin-bottom:22px;\"></div>" +
       "<div class=\"ledger-scroll\">" +
@@ -135,6 +136,7 @@
     document.getElementById("fam-filter-passport").addEventListener("change", function (e) { filterExpiringPassports = e.target.checked; renderFamilyTable(category); });
     document.getElementById("fam-filter-birthday").addEventListener("change", function (e) { filterUpcomingBirthdays = e.target.checked; renderFamilyTable(category); });
     document.getElementById("btn-toggle-add-fam").addEventListener("click", function () { showAddForm = !showAddForm; editingPartyId = null; renderAddFamForm(category); });
+    document.getElementById("btn-export-fam-csv").addEventListener("click", function () { exportPartiesCsv(category); });
 
     loadParties(category).then(function () { renderFamilyTable(category); });
   }
@@ -452,6 +454,7 @@
         renderPassportCell(p) +
         "<td style=\"color:" + (birthdaySoon ? "var(--azure)" : "var(--text)") + ";\">" + escapeHtml(p.date_of_birth || "-") + (birthdaySoon ? " [Soon]" : "") + "</td>" +
         "<td><div class=\"row-actions\">" +
+          "<button class=\"row-action-btn\" data-view-history=\"" + p.id + "\" title=\"History\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 3\"/></svg></button>" +
           "<button class=\"row-action-btn\" data-edit-fam=\"" + p.id + "\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z\"/></svg></button>" +
           (isRoot ? "<button class=\"row-action-btn\" data-add-sub-fam=\"" + p.id + "\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 5v14M5 12h14\"/></svg></button>" : "") +
           "<button class=\"row-action-btn is-danger\" data-delete-fam=\"" + p.id + "\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button>" +
@@ -468,6 +471,9 @@
 
     tbody.querySelectorAll("[data-toggle-fam]").forEach(function (btn) {
       btn.addEventListener("click", function () { var id = btn.dataset.toggleFam; expandedRoots[id] = !expandedRoots[id]; renderFamilyTable(category); });
+    });
+    tbody.querySelectorAll("[data-view-history]").forEach(function (btn) {
+      btn.addEventListener("click", function () { openHistoryPanel(btn.dataset.viewHistory); });
     });
     tbody.querySelectorAll("[data-edit-fam]").forEach(function (btn) {
       btn.addEventListener("click", function () { editingPartyId = btn.dataset.editFam; showAddForm = true; renderAddFamForm(category); });
@@ -494,6 +500,76 @@
       alert(err.message || "Failed to delete.");
     }
   }
+
+  // =========================================================================
+  // Customer History Panel
+  // =========================================================================
+
+  var DEPT_LABELS = { flight: "Flight", hotel: "Hotel", visa: "Visa", car: "Car" };
+
+  function openModal2(el) { el.classList.add("is-open"); }
+  function closeModal2(el) { el.classList.remove("is-open"); }
+
+  async function openHistoryPanel(partyId) {
+    var overlay = document.getElementById("history-panel-overlay");
+    var body = document.getElementById("history-panel-body");
+    var nameEl = document.getElementById("history-panel-name");
+    var codeEl = document.getElementById("history-panel-code");
+    if (!overlay || !body) return;
+
+    openModal2(overlay);
+    body.innerHTML = "<div class=\"history-empty\">Loading...</div>";
+
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.PARTY_HISTORY(partyId));
+      var data = result.data;
+      nameEl.textContent = data.party.full_name;
+      codeEl.textContent = data.party.code;
+
+      if (data.bookings.length === 0) {
+        body.innerHTML = "<div class=\"history-empty\"><p>No bookings recorded for this customer yet.</p></div>";
+        return;
+      }
+
+      body.innerHTML = data.bookings.map(function (b) {
+        var title = b.passenger_name || "-";
+        var extra = b.department === "car" ? (b.from_location && b.to_location ? escapeHtml(b.from_location) + " &rarr; " + escapeHtml(b.to_location) : "") : (b.hotel_name || b.route || "");
+        return "<div class=\"history-item\">" +
+          "<span class=\"history-item__dept\">" + (DEPT_LABELS[b.department] || b.department) + "</span>" +
+          "<div class=\"history-item__title\">" + escapeHtml(title) + (extra ? " -- " + escapeHtml(extra) : "") + "</div>" +
+          "<div class=\"history-item__meta\">" + escapeHtml(b.date) + " -- " + fmtMoney(b.selling_rate) + " " + escapeHtml(b.currency) + "</div>" +
+        "</div>";
+      }).join("");
+    } catch (err) {
+      body.innerHTML = "<div class=\"history-empty\"><p>Failed to load history.</p></div>";
+    }
+  }
+
+  function csvEscape(value) {
+    var s = value === null || value === undefined ? "" : String(value);
+    return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
+  }
+
+  function exportPartiesCsv(category) {
+    if (allPartiesCache.length === 0) { alert("No records to export."); return; }
+    var columns = ["code", "full_name", "job_title", "relationship", "is_vip", "phone", "email", "passport_number", "passport_expiry", "date_of_birth"];
+    var labels = ["Code", "Name", "Job Title", "Relationship", "VIP", "Phone", "Email", "Passport", "Passport Expiry", "DOB"];
+    var lines = [labels.map(csvEscape).join(",")];
+    allPartiesCache.forEach(function (p) {
+      lines.push(columns.map(function (c) { return csvEscape(p[c]); }).join(","));
+    });
+    var csv = "\uFEFF" + lines.join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "Voyvista-" + category.toUpperCase() + "-" + todayISO() + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
 
   MODULE_RENDERERS.b2b = function () { renderFamilyPackage("b2b"); };
   MODULE_RENDERERS.b2c = function () { renderFamilyPackage("b2c"); };
@@ -689,6 +765,11 @@
     document.getElementById("pkg-b2b").addEventListener("click", function () { switchDataView("b2b"); });
     document.getElementById("pkg-b2c").addEventListener("click", function () { switchDataView("b2c"); });
     if (accBtn) accBtn.addEventListener("click", function () { switchDataView("accounting"); });
+
+    var historyOverlay = document.getElementById("history-panel-overlay");
+    var historyClose = document.getElementById("history-panel-close");
+    if (historyClose) historyClose.addEventListener("click", function () { closeModal2(historyOverlay); });
+    if (historyOverlay) historyOverlay.addEventListener("click", function (e) { if (e.target === historyOverlay) closeModal2(historyOverlay); });
 
     document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
       btn.addEventListener("click", function () { document.getElementById(btn.dataset.closeModal).classList.remove("is-open"); });

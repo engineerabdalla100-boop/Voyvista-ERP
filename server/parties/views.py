@@ -126,3 +126,27 @@ class PartyViewSet(viewsets.ModelViewSet):
 
         alias = PartyAlias.objects.create(party=party, alias_code=alias_code, note=request.data.get("note", ""), linked_by=request.user)
         return Response(PartyAliasSerializer(alias).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"])
+    def history(self, request, pk=None):
+        """
+        Full cross-department transaction history for one customer --
+        every confirmed booking across Flights, Hotels, Visas and Cars
+        that is linked to this Party, newest first. No pagination cap:
+        a long-standing customer's entire history is returned in one
+        call, exactly like every other list in this system.
+        """
+        from bookings.models import Booking
+        from bookings.serializers import BookingSerializer
+
+        party = self.get_object()
+        bookings = (
+            Booking.objects.filter(customer_id=party.pk, record_status=Booking.RecordStatus.ACTIVE)
+            .select_related("created_by")
+            .order_by("-date")
+        )
+        return Response({
+            "party": PartySerializer(party).data,
+            "total_bookings": bookings.count(),
+            "bookings": BookingSerializer(bookings, many=True).data,
+        })
