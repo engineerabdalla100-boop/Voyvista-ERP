@@ -98,7 +98,6 @@
     try {
       allPartiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES + "?type=customer&client_category=" + category);
     } catch (err) {
-    } catch (err) {
       allPartiesCache = [];
     }
   }
