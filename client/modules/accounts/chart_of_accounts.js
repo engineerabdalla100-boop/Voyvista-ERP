@@ -25,9 +25,28 @@
   var accountsCache = [];
   var editingAccountId = null;
 
-  document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
     loadAccounts();
+    loadJournalEntries();
 
+    document.querySelectorAll("[data-tab]").forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        document.querySelectorAll("[data-tab]").forEach(function (t) { t.classList.remove("is-active"); });
+        document.querySelectorAll(".tab-view").forEach(function (v) { v.classList.remove("is-active"); });
+        tab.classList.add("is-active");
+        document.getElementById("tab-" + tab.dataset.tab).classList.add("is-active");
+      });
+    });
+
+    document.getElementById("btn-open-add-je")?.addEventListener("click", function () {
+      openAddJeModal();
+    });
+    document.getElementById("btn-add-je-line")?.addEventListener("click", function () { addJeLine(); });
+    document.getElementById("btn-save-je")?.addEventListener("click", saveJournalEntry);
+    document.getElementById("je-search")?.addEventListener("input", renderJournalTable);
+    document.getElementById("je-status-filter")?.addEventListener("change", renderJournalTable);
+
+    document.getElementById("btn-open-add-account")?.addEventListener("click", function () {
     document.getElementById("btn-open-add-account")?.addEventListener("click", function () {
       editingAccountId = null;
       resetAccountForm();
@@ -58,7 +77,6 @@
     try {
       accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
       populateParentSelect();
-    } catch (err) { accountsCache = []; }
     } catch (err) { accountsCache = []; }
     renderTable();
   }
@@ -248,6 +266,212 @@
         : "<tr><td colspan=\"6\" style=\"text-align:center; color:var(--text-faint);\">\u0644\u0627 \u062A\u0648\u062C\u062F \u062D\u0631\u0643\u0627\u062A \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628.</td></tr>";
     } catch (err) {
       document.getElementById("ledger-lines-body").innerHTML = "<tr><td colspan=\"6\" style=\"text-align:center; color:var(--coral);\">\u0641\u0634\u0644 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u062D\u0631\u0643\u0627\u062A.</td></tr>";
+    }
+  }
+  }
+
+  // =========================================================================
+  // Journal Entries -- requestAllPages from the start, no 50-record cap.
+  // =========================================================================
+
+   var JE_STATUS_LABELS = {
+    draft: "\u0645\u0633\u0648\u0651\u062F\u0629", submitted: "\u0645\u064F\u0642\u062F\u064E\u0651\u0645",
+    approved: "\u0645\u0639\u062A\u0645\u062F", posted: "\u0645\u064F\u0631\u062D\u064E\u0651\u0644",
+  };
+  var JE_NEXT_ACTION = { draft: "submit", submitted: "approve", approved: "post_entry" };
+  var JE_NEXT_ACTION_LABEL = { draft: "\u0625\u0631\u0633\u0627\u0644", submitted: "\u0627\u0639\u062A\u0645\u0627\u062F", approved: "\u062A\u0631\u062D\u064A\u0644" };
+
+  var journalEntriesCache = [];
+  var jeLineCounter = 0;
+
+  async function loadJournalEntries() {
+    try {
+      journalEntriesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.JOURNAL_ENTRIES);
+    } catch (err) {
+      journalEntriesCache = [];
+    }
+    renderJournalTable();
+  }
+
+  function renderJournalTable() {
+    var query = (document.getElementById("je-search").value || "").trim().toLowerCase();
+    var statusFilter = document.getElementById("je-status-filter").value;
+
+    var rows = journalEntriesCache.filter(function (e) {
+      var matchesQuery = !query || e.number.toLowerCase().includes(query) || (e.description || "").toLowerCase().includes(query);
+      var matchesStatus = !statusFilter || e.status === statusFilter;
+      return matchesQuery && matchesStatus;
+    });
+
+    var tbody = document.getElementById("je-table-body");
+    var table = document.getElementById("je-table");
+    var empty = document.getElementById("je-empty");
+    if (rows.length === 0) { table.style.display = "none"; empty.style.display = "block"; return; }
+    table.style.display = "table";
+    empty.style.display = "none";
+
+    tbody.innerHTML = rows.map(function (e) {
+      return "<tr>" +
+        "<td class=\"mono\">" + escapeHtml(e.number) + "</td>" +
+        "<td>" + escapeHtml(e.date) + "</td>" +
+        "<td>" + escapeHtml(e.description) + "</td>" +
+        "<td>" + escapeHtml(e.reference || "-") + "</td>" +
+        "<td class=\"num\">" + fmtMoney(e.total_debit) + "</td>" +
+        "<td class=\"num\">" + fmtMoney(e.total_credit) + "</td>" +
+        "<td><span class=\"status-badge status-badge--" + e.status + "\">" + JE_STATUS_LABELS[e.status] + "</span></td>" +
+        "<td>" + jeActionsHtml(e) + "</td>" +
+      "</tr>";
+    }).join("");
+
+    wireJeActions();
+  }
+
+  function jeActionsHtml(e) {
+    var html = "";
+    var nextAction = JE_NEXT_ACTION[e.status];
+    if (nextAction) {
+      html += "<button class=\"btn-workflow-next\" data-je-advance=\"" + e.id + "\" data-action=\"" + nextAction + "\">" + JE_NEXT_ACTION_LABEL[e.status] + "</button>";
+    }
+    if (e.status === "draft") {
+      html += "<button class=\"row-action-btn is-danger\" data-je-delete=\"" + e.id + "\" title=\"\u062D\u0630\u0641\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button>";
+    }
+    if (e.status === "posted" && !e.reversed_by) {
+      html += "<button class=\"row-action-btn\" data-je-reverse=\"" + e.id + "\" title=\"\u0639\u0643\u0633\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 7v6h6\"/><path d=\"M3 13a9 9 0 1 0 3-6.7L3 9\"/></svg></button>";
+    }
+    return html;
+  }
+
+  function wireJeActions() {
+    document.querySelectorAll("[data-je-advance]").forEach(function (btn) {
+      btn.addEventListener("click", function () { advanceJournalEntry(btn.dataset.jeAdvance, btn.dataset.action); });
+    });
+    document.querySelectorAll("[data-je-delete]").forEach(function (btn) {
+      btn.addEventListener("click", function () { deleteJournalEntry(btn.dataset.jeDelete); });
+    });
+    document.querySelectorAll("[data-je-reverse]").forEach(function (btn) {
+      btn.addEventListener("click", function () { reverseJournalEntry(btn.dataset.jeReverse); });
+    });
+  }
+
+  async function advanceJournalEntry(id, action) {
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.JOURNAL_ENTRY_ACTION(id, action), { method: "POST" });
+      await loadJournalEntries();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u0642\u064A\u062F.");
+    }
+  }
+
+  async function deleteJournalEntry(id) {
+    if (!confirm("\u062D\u0630\u0641 \u0647\u0630\u0627 \u0627\u0644\u0642\u064A\u062F \u0646\u0647\u0627\u0626\u064A\u064B\u0627\u061F")) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.JOURNAL_ENTRY_DETAIL(id), { method: "DELETE" });
+      await loadJournalEntries();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0642\u064A\u062F.");
+    }
+  }
+
+  async function reverseJournalEntry(id) {
+    var reason = prompt("\u0633\u0628\u0628 \u0627\u0644\u0639\u0643\u0633 (\u0627\u062E\u062A\u064A\u0627\u0631\u064A):") || "";
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.JOURNAL_ENTRY_ACTION(id, "reverse"), { method: "POST", body: { reason: reason } });
+      await loadJournalEntries();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0639\u0643\u0633 \u0627\u0644\u0642\u064A\u062F.");
+    }
+  }
+
+  function openAddJeModal() {
+    document.getElementById("je-date").value = new Date().toISOString().split("T")[0];
+    document.getElementById("je-reference").value = "";
+    document.getElementById("je-description").value = "";
+    document.getElementById("je-lines-wrap").innerHTML = "";
+    jeLineCounter = 0;
+    addJeLine();
+    addJeLine();
+    updateJeTotals();
+    openModal("modal-add-je");
+  }
+
+  function addJeLine() {
+    var wrap = document.getElementById("je-lines-wrap");
+    var lineId = "je-line-" + (jeLineCounter++);
+    var accountOptions = accountsCache
+      .filter(function (a) { return a.status !== "inactive"; })
+      .map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; })
+      .join("");
+
+    var row = document.createElement("div");
+    row.className = "je-line-row";
+    row.id = lineId;
+    row.innerHTML =
+      "<select class=\"je-line-account\"><option value=\"\">-- \u0627\u062E\u062A\u0631 \u062D\u0633\u0627\u0628 --</option>" + accountOptions + "</select>" +
+      "<input type=\"number\" min=\"0\" step=\"0.01\" class=\"je-line-debit\" placeholder=\"\u0645\u062F\u064A\u0646\" value=\"0\" />" +
+      "<input type=\"number\" min=\"0\" step=\"0.01\" class=\"je-line-credit\" placeholder=\"\u062F\u0627\u0626\u0646\" value=\"0\" />" +
+      "<input type=\"text\" class=\"je-line-memo\" placeholder=\"\u0645\u0644\u0627\u062D\u0638\u0629 (\u0627\u062E\u062A\u064A\u0627\u0631\u064A)\" />" +
+      "<button type=\"button\" class=\"row-action-btn is-danger\" data-remove-je-line=\"" + lineId + "\">\u00D7</button>";
+    wrap.appendChild(row);
+
+    row.querySelector(".je-line-debit").addEventListener("input", updateJeTotals);
+    row.querySelector(".je-line-credit").addEventListener("input", updateJeTotals);
+    row.querySelector("[data-remove-je-line]").addEventListener("click", function () {
+      document.getElementById(lineId).remove();
+      updateJeTotals();
+    });
+  }
+
+  function updateJeTotals() {
+    var debitInputs = document.querySelectorAll(".je-line-debit");
+    var creditInputs = document.querySelectorAll(".je-line-credit");
+    var totalDebit = 0, totalCredit = 0;
+    debitInputs.forEach(function (el) { totalDebit += Number(el.value) || 0; });
+    creditInputs.forEach(function (el) { totalCredit += Number(el.value) || 0; });
+
+    document.getElementById("je-total-debit").textContent = fmtMoney(totalDebit);
+    document.getElementById("je-total-credit").textContent = fmtMoney(totalCredit);
+
+    var statusEl = document.getElementById("je-balance-status");
+    var isBalanced = totalDebit > 0 && Math.abs(totalDebit - totalCredit) < 0.005;
+    statusEl.textContent = isBalanced ? "\u2713 \u0645\u062A\u0648\u0627\u0632\u0646" : "\u2717 \u063A\u064A\u0631 \u0645\u062A\u0648\u0627\u0632\u0646";
+    statusEl.className = isBalanced ? "is-balanced" : "is-unbalanced";
+  }
+
+  async function saveJournalEntry() {
+    var date = document.getElementById("je-date").value;
+    var description = document.getElementById("je-description").value.trim();
+    if (!date || !description) { alert("\u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0648\u0627\u0644\u0628\u064A\u0627\u0646 \u0645\u0637\u0644\u0648\u0628\u0627\u0646."); return; }
+
+    var lines = [];
+    document.querySelectorAll(".je-line-row").forEach(function (row) {
+      var accountId = row.querySelector(".je-line-account").value;
+      var debit = row.querySelector(".je-line-debit").value || "0";
+      var credit = row.querySelector(".je-line-credit").value || "0";
+      var memo = row.querySelector(".je-line-memo").value.trim();
+      if (accountId && (Number(debit) > 0 || Number(credit) > 0)) {
+        lines.push({ account: accountId, debit: debit, credit: credit, memo: memo });
+      }
+    });
+
+    if (lines.length < 2) { alert("\u0627\u0644\u0642\u064A\u062F \u064A\u062D\u062A\u0627\u062C \u0628\u0646\u062F\u064A\u0646 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644."); return; }
+
+    var totalDebit = lines.reduce(function (sum, l) { return sum + Number(l.debit); }, 0);
+    var totalCredit = lines.reduce(function (sum, l) { return sum + Number(l.credit); }, 0);
+    if (Math.abs(totalDebit - totalCredit) >= 0.005) { alert("\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062F\u064A\u0646 \u064A\u062C\u0628 \u0623\u0646 \u064A\u0633\u0627\u0648\u064A \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u062F\u0627\u0626\u0646."); return; }
+
+    var payload = {
+      date: date,
+      reference: document.getElementById("je-reference").value.trim(),
+      description: description,
+      lines: lines,
+    };
+
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.JOURNAL_ENTRIES, { method: "POST", body: payload });
+      closeModal("modal-add-je");
+      await loadJournalEntries();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u0642\u064A\u062F.");
     }
   }
 })();

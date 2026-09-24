@@ -131,7 +131,6 @@
     try {
       archiveCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.FINANCIAL_PERIODS);
     } catch (err) { archiveCache = []; }
-    } catch (err) { archiveCache = []; }
     renderArchiveTable();
   }
 

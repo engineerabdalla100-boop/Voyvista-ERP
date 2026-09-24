@@ -15,18 +15,25 @@
   .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
   .vv-modal-overlay.is-open { display: flex; }
   .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 600px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal--wide { max-width: 900px; }
   .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
   .vv-modal__title { font-weight: 700; font-size: 15.5px; }
   .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .vv-modal__close svg { width: 14px; height: 14px; }
   .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
-  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); flex-wrap: wrap; }
 
   .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
   .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
   .vv-field-row .vv-field { margin-bottom: 0; }
   .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
   .vv-field input, .vv-field select { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .vv-tabs { display: flex; gap: 4px; margin-bottom: 22px; background: var(--canvas); padding: 4px; border-radius: var(--radius-md); width: fit-content; flex-wrap: wrap; }
+  .vv-tab { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--text-soft); }
+  .vv-tab.is-active { background: var(--surface); color: var(--gold-deep); box-shadow: var(--shadow-sm); }
+  .tab-view { display: none; }
+  .tab-view.is-active { display: block; }
 
   .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .toolbar-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -49,20 +56,34 @@
   .type-chip--revenue { background: #E7EEFD; color: #3068E0; }
   .type-chip--expense { background: #FBEFDA; color: #C98A1E; }
 
-  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
   .status-badge--active { background: var(--emerald-soft); color: var(--emerald); }
   .status-badge--inactive { background: #EEF0F4; color: #5C6B82; }
   .status-badge--postable { background: #E7EEFD; color: #3068E0; }
+  .status-badge--draft { background: #EEF0F4; color: #5C6B82; }
+  .status-badge--submitted { background: #FBEAC8; color: #A6700F; }
+  .status-badge--approved { background: #E7EEFD; color: #3068E0; }
+  .status-badge--posted { background: var(--emerald-soft); color: var(--emerald); }
 
   .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
   .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
   .row-action-btn svg { width: 13px; height: 13px; }
+  .btn-workflow-next { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-deep); cursor: pointer; margin-inline-end: 4px; }
+  .btn-confirm-post { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--emerald); background: var(--emerald-soft); color: var(--emerald); cursor: pointer; margin-inline-end: 4px; }
+  .btn-export { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; }
+  .btn-export svg { width: 14px; height: 14px; }
 
   .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
 
   .ledger-panel { background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-top: 16px; }
   .ledger-panel__row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; border-bottom: 1px dashed var(--border); }
   .ledger-panel__row:last-child { border-bottom: none; }
+
+  .je-line-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr 32px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .je-line-row select, .je-line-row input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+  .je-totals-bar { display: flex; justify-content: flex-end; gap: 24px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12.5px; font-weight: 700; }
+  .je-totals-bar .is-balanced { color: var(--emerald); }
+  .je-totals-bar .is-unbalanced { color: #B02A2A; }
 </style>
 </head>
 <body>
@@ -77,37 +98,75 @@
       <div class="page-head">
         <div>
           <h1>&#1588;&#1580;&#1585;&#1577; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;&#1575;&#1578;</h1>
-          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">&#1573;&#1583;&#1575;&#1585;&#1577; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;&#1575;&#1578; &#1575;&#1604;&#1605;&#1575;&#1604;&#1610;&#1577; &#1575;&#1604;&#1605;&#1587;&#1578;&#1582;&#1583;&#1605;&#1577; &#1641; &#1601;&#1610; &#1603;&#1604; &#1575;&#1604;&#1605;&#1608;&#1583;&#1610;&#1608;&#1604;&#1575;&#1578; &#1575;&#1604;&#1605;&#1581;&#1575;&#1587;&#1576;&#1610;&#1577;</p>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">&#1573;&#1583;&#1575;&#1585;&#1577; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;&#1575;&#1578; &#1575;&#1604;&#1605;&#1575;&#1604;&#1610;&#1577; &#1575;&#1604;&#1605;&#1587;&#1578;&#1582;&#1583;&#1605;&#1577; &#1608;&#1575;&#1604;&#1602;&#1610;&#1608;&#1583; &#1575;&#1604;&#1610;&#1608;&#1605;&#1610;&#1577;</p>
         </div>
       </div>
 
-      <div class="toolbar">
-        <div class="toolbar-filters">
-          <div class="ledger-search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input type="text" id="coa-search" placeholder="&#1576;&#1581;&#1579; &#1576;&#1575;&#1604;&#1603;&#1608;&#1583; &#1571;&#1608; &#1575;&#1604;&#1575;&#1587;&#1605;..." />
+      <div class="vv-tabs">
+        <div class="vv-tab is-active" data-tab="coa">&#1588;&#1580;&#1585;&#1577; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;&#1575;&#1578;</div>
+        <div class="vv-tab" data-tab="journal">&#1575;&#1604;&#1602;&#1610;&#1608;&#1583; &#1575;&#1604;&#1610;&#1608;&#1605;&#1610;&#1577;</div>
+      </div>
+
+      <!-- ============================= CHART OF ACCOUNTS TAB ============================= -->
+      <div class="tab-view is-active" id="tab-coa">
+        <div class="toolbar">
+          <div class="toolbar-filters">
+            <div class="ledger-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="coa-search" placeholder="&#1576;&#1581;&#1579; &#1576;&#1575;&#1604;&#1603;&#1608;&#1583; &#1571;&#1608; &#1575;&#1604;&#1575;&#1587;&#1605;..." />
+            </div>
+            <select id="coa-type-filter" class="filter-select">
+              <option value="">&#1603;&#1604; &#1575;&#1604;&#1571;&#1606;&#1608;&#1575;&#1593;</option>
+              <option value="asset">&#1571;&#1589;&#1608;&#1604;</option>
+              <option value="liability">&#1582;&#1589;&#1608;&#1605;</option>
+              <option value="equity">&#1581;&#1602;&#1608;&#1602; &#1605;&#1604;&#1603;&#1610;&#1577;</option>
+              <option value="revenue">&#1573;&#1610;&#1585;&#1575;&#1583;&#1575;&#1578;</option>
+              <option value="expense">&#1605;&#1589;&#1585;&#1608;&#1601;&#1575;&#1578;</option>
+            </select>
           </div>
-          <select id="coa-type-filter" class="filter-select">
-            <option value="">&#1603;&#1604; &#1575;&#1604;&#1571;&#1606;&#1608;&#1575;&#1593;</option>
-            <option value="asset">&#1571;&#1589;&#1608;&#1604;</option>
-            <option value="liability">&#1582;&#1589;&#1608;&#1605;</option>
-            <option value="equity">&#1581;&#1602;&#1608;&#1602; &#1605;&#1604;&#1603;&#1610;&#1577;</option>
-            <option value="revenue">&#1573;&#1610;&#1585;&#1575;&#1583;&#1575;&#1578;</option>
-            <option value="expense">&#1605;&#1589;&#1585;&#1608;&#1601;&#1575;&#1578;</option>
-          </select>
+          <button class="btn btn--primary" id="btn-open-add-account" type="button">+ &#1573;&#1590;&#1575;&#1601;&#1577; &#1581;&#1587;&#1575;&#1576;</button>
         </div>
-        <button class="btn btn--primary" id="btn-open-add-account" type="button">+ &#1573;&#1590;&#1575;&#1601;&#1577; &#1581;&#1587;&#1575;&#1576;</button>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="coa-table">
+            <thead>
+              <tr><th>&#1575;&#1604;&#1603;&#1608;&#1583;</th><th>&#1575;&#1587;&#1605; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;</th><th>&#1575;&#1604;&#1606;&#1608;&#1593;</th><th>&#1575;&#1604;&#1591;&#1576;&#1610;&#1593;&#1577;</th><th class="num">&#1575;&#1604;&#1585;&#1589;&#1610;&#1583; &#1575;&#1604;&#1581;&#1575;&#1604;&#1610;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th><th>&#1575;&#1604;&#1573;&#1580;&#1585;&#1575;&#1569;&#1575;&#1578;</th></tr>
+            </thead>
+            <tbody id="coa-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="coa-empty" style="display:none;"><p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1581;&#1587;&#1575;&#1576;&#1575;&#1578; &#1576;&#1593;&#1583; -- &#1571;&#1590;&#1601; &#1571;&#1608;&#1604; &#1581;&#1587;&#1575;&#1576;.</p></div>
       </div>
 
-      <div class="ledger-scroll">
-        <table class="ledger" id="coa-table">
-          <thead>
-            <tr><th>&#1575;&#1604;&#1603;&#1608;&#1583;</th><th>&#1575;&#1587;&#1605; &#1575;&#1604;&#1581;&#1587;&#1575;&#1576;</th><th>&#1575;&#1604;&#1606;&#1608;&#1593;</th><th>&#1575;&#1604;&#1591;&#1576;&#1610;&#1593;&#1577;</th><th class="num">&#1575;&#1604;&#1585;&#1589;&#1610;&#1583; &#1575;&#1604;&#1581;&#1575;&#1604;&#1610;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th><th>&#1575;&#1604;&#1573;&#1580;&#1585;&#1575;&#1569;&#1575;&#1578;</th></tr>
-          </thead>
-          <tbody id="coa-table-body"></tbody>
-        </table>
+      <!-- ============================= JOURNAL ENTRIES TAB ============================= -->
+      <div class="tab-view" id="tab-journal">
+        <div class="toolbar">
+          <div class="toolbar-filters">
+            <div class="ledger-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="je-search" placeholder="&#1576;&#1581;&#1579; &#1576;&#1585;&#1602;&#1605; &#1575;&#1604;&#1602;&#1610;&#1583; &#1571;&#1608; &#1575;&#1604;&#1576;&#1610;&#1575;&#1606;..." />
+            </div>
+            <select id="je-status-filter" class="filter-select">
+              <option value="">&#1603;&#1604; &#1575;&#1604;&#1581;&#1575;&#1604;&#1575;&#1578;</option>
+              <option value="draft">&#1605;&#1587;&#1608;&#1651;&#1583;&#1577;</option>
+              <option value="submitted">&#1605;&#1615;&#1602;&#1583;&#1617;&#1605;</option>
+              <option value="approved">&#1605;&#1593;&#1578;&#1605;&#1583;</option>
+              <option value="posted">&#1605;&#1615;&#1585;&#1581;&#1617;&#1604;</option>
+            </select>
+          </div>
+          <button class="btn btn--primary" id="btn-open-add-je" type="button">+ &#1602;&#1610;&#1583; &#1610;&#1608;&#1605;&#1610; &#1580;&#1583;&#1610;&#1583;</button>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="je-table">
+            <thead>
+              <tr><th>&#1575;&#1604;&#1585;&#1602;&#1605;</th><th>&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</th><th>&#1575;&#1604;&#1576;&#1610;&#1575;&#1606;</th><th>&#1575;&#1604;&#1605;&#1585;&#1580;&#1593;</th><th class="num">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1605;&#1583;&#1610;&#1606;</th><th class="num">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1583;&#1575;&#1574;&#1606;</th><th>&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th><th>&#1575;&#1604;&#1573;&#1580;&#1585;&#1575;&#1569;&#1575;&#1578;</th></tr>
+            </thead>
+            <tbody id="je-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="je-empty" style="display:none;"><p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1602;&#1610;&#1608;&#1583; &#1610;&#1608;&#1605;&#1610;&#1577; &#1576;&#1593;&#1583;.</p></div>
       </div>
-      <div class="empty-state" id="coa-empty" style="display:none;"><p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1581;&#1587;&#1575;&#1576;&#1575;&#1578; &#1576;&#1593;&#1583; -- &#1571;&#1590;&#1601; &#1571;&#1608;&#1604; &#1581;&#1587;&#1575;&#1576;.</p></div>
 
     </div>
   </div>
@@ -194,6 +253,41 @@
           <tbody id="ledger-lines-body"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ADD/VIEW JOURNAL ENTRY MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-add-je">
+  <div class="vv-modal vv-modal--wide">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title" id="je-modal-title">&#1602;&#1610;&#1583; &#1610;&#1608;&#1605;&#1610; &#1580;&#1583;&#1610;&#1583;</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-je" aria-label="&#1573;&#1594;&#1604;&#1575;&#1602;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</label><input type="date" id="je-date" /></div>
+        <div class="vv-field"><label>&#1575;&#1604;&#1605;&#1585;&#1580;&#1593; (&#1575;&#1582;&#1578;&#1610;&#1575;&#1585;&#1610;)</label><input type="text" id="je-reference" placeholder="&#1605;&#1579;&#1575;&#1604;: JE-Manual-01" /></div>
+      </div>
+      <div class="vv-field"><label>&#1575;&#1604;&#1576;&#1610;&#1575;&#1606;</label><input type="text" id="je-description" placeholder="&#1608;&#1589;&#1601; &#1575;&#1604;&#1602;&#1610;&#1583;..." /></div>
+
+      <div class="vv-field" style="margin-top:18px;">
+        <label>&#1576;&#1606;&#1608;&#1583; &#1575;&#1604;&#1602;&#1610;&#1583; (&#1605;&#1583;&#1610;&#1606; / &#1583;&#1575;&#1574;&#1606;)</label>
+        <div id="je-lines-wrap"></div>
+        <button type="button" class="btn btn--ghost" id="btn-add-je-line" style="font-size:11.5px; padding:7px 14px; margin-top:6px;">+ &#1573;&#1590;&#1575;&#1601;&#1577; &#1576;&#1606;&#1583;</button>
+      </div>
+
+      <div class="je-totals-bar">
+        <span>&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1605;&#1583;&#1610;&#1606;: <span id="je-total-debit">0.00</span></span>
+        <span>&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1583;&#1575;&#1574;&#1606;: <span id="je-total-credit">0.00</span></span>
+        <span id="je-balance-status">-</span>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-je" type="button">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+      <button class="btn btn--primary" id="btn-save-je" type="button">&#1581;&#1601;&#1592; &#1603;&#1605;&#1587;&#1608;&#1583;&#1577;</button>
     </div>
   </div>
 </div>

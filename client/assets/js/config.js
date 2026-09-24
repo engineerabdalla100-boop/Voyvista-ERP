@@ -1,4 +1,4 @@
-/**
+﻿/**
  * config.js
  * -----------------------------------------------------------------------
  * Central configuration for the client + the real API paths served by
@@ -41,9 +41,10 @@ const VV_CONFIG = {
 
     // --- Accounting ---
     ACCOUNTS_COA: "/accounts-coa/",
-    ACCOUNTS_COA_DETAIL: (id) => `/accounts-coa/${id}/`,
     JOURNAL_ENTRIES: "/journal-entries/",
     JOURNAL_ENTRY_DETAIL: (id) => `/journal-entries/${id}/`,
+    JOURNAL_ENTRY_ACTION: (id, action) => `/journal-entries/${id}/${action}/`,
+    ACCOUNTS_COA_DETAIL: (id) => `/accounts-coa/${id}/`,
     CUSTODY: "/custody/",
     CUSTODY_DETAIL: (id) => `/custody/${id}/`,
     EXPENSES_ACC: "/expenses/",

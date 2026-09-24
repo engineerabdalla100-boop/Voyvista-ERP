@@ -103,7 +103,6 @@
     try {
       accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
       var treasuryAccounts = accountsCache.filter(function (a) { return a.type === "asset"; });
-      var treasuryAccounts = accountsCache.filter(function (a) { return a.type === "asset"; });
       var controlAccounts = accountsCache.filter(function (a) { return a.type === "asset" || a.type === "liability"; });
       var options = function (list) { return list.map(function (a) { return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>"; }).join(""); };
       ["v-treasury-account", "ps-treasury-account"].forEach(function (id) {
@@ -121,7 +120,6 @@
   async function loadParties() {
     try {
       partiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES);
-      document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
       document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
         return "<option value=\"" + p.id + "\">" + escapeHtml(p.full_name) + " (" + escapeHtml(p.code) + ")</option>";
       }).join("");
@@ -158,7 +156,6 @@
   async function loadVouchers() {
     try {
       vouchersCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.VOUCHERS);
-    } catch (err) { vouchersCache = []; }
     } catch (err) { vouchersCache = []; }
     renderVouchersTable();
     renderKpiCards();
@@ -407,16 +404,6 @@
     } catch (err) {
       alert(err.message || "\u0641\u0634\u0644 \u0633\u062F\u0627\u062F \u0627\u0644\u0645\u0648\u0631\u062F.");
     }
-  }
-
-  async function loadParties() {
-    try {
-      partiesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.PARTIES);
-      document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
-      document.getElementById("v-party").innerHTML = partiesCache.map(function (p) {
-        return "<option value=\"" + p.id + "\">" + escapeHtml(p.full_name) + " (" + escapeHtml(p.code) + ")</option>";
-      }).join("");
-    } catch (err) { /* silent */ }
   }
 
   // =========================================================================

@@ -360,7 +360,6 @@
     try {
       templatesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.RECURRING_EXPENSES + "?active_only=true");
     } catch (err) { templatesCache = []; }
-    } catch (err) { templatesCache = []; }
     renderTemplatesTable();
   }
 
@@ -557,7 +556,6 @@
   async function loadCustody() {
     try {
       custodyCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.CUSTODY);
-    } catch (err) { custodyCache = []; }
     } catch (err) { custodyCache = []; }
     renderCustodyTable();
     renderKpiCards();
