@@ -1,7 +1,7 @@
-﻿(function () {
+(function () {
   "use strict";
 
-  var MODULE_TITLES = { b2b: "B2B - Company Accounts", b2c: "B2C - Individual & Family Accounts", accounting: "Accounting - Sales Report & Analysis" };
+  var MODULE_TITLES = { b2b: "B2B - Company Accounts", b2c: "B2C - Individual & Family Accounts", accounting: "Data Analysis" };
   var MODULE_RENDERERS = {};
 
   var expandedRoots = {};
@@ -570,183 +570,128 @@
     URL.revokeObjectURL(url);
   }
 
-
   MODULE_RENDERERS.b2b = function () { renderFamilyPackage("b2b"); };
   MODULE_RENDERERS.b2c = function () { renderFamilyPackage("b2c"); };
 
   // =========================================================================
-  // Accounting package -- SIMPLIFIED: no review workflow at all. Every
-  // confirmed booking in a department shows up in that department's
-  // supplier chart/table immediately. Each card has ONE eye button
-  // (not per-supplier) that opens the FULL detailed sales report for
-  // every booking in that department.
+  // Data Analysis dashboard -- KPI cards + charts, computed server-side
+  // from /api/bookings/analytics/. No client-side row iteration, so
+  // there is no 50-record cap anywhere in this path.
   // =========================================================================
 
-  var DEPARTMENTS = [
-    { key: "flight", label: "Flights" },
-    { key: "hotel", label: "Hotels" },
-    { key: "visa", label: "Visas" },
-  ];
-
-  var SUPPLIER_PALETTE = ["#1F9D6E", "#E8B93A", "#D9534F", "#3068E0", "#8E44AD", "#E8791A", "#2E86AB"];
-  var supplierColorMap = {};
-
-  function colorForSupplier(supplier) {
-    if (!supplierColorMap[supplier]) {
-      var idx = Object.keys(supplierColorMap).length % SUPPLIER_PALETTE.length;
-      supplierColorMap[supplier] = SUPPLIER_PALETTE[idx];
-    }
-    return supplierColorMap[supplier];
-  }
-
-  var bookingsByDept = { flight: [], hotel: [], visa: [] };
-  var chartInstances = { flight: null, hotel: null, visa: null };
-
-  async function loadDeptBookings(deptKey) {
-    try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.BOOKINGS + "sales-report/?department=" + deptKey);
-      bookingsByDept[deptKey] = result.data || [];
-    } catch (err) {
-      bookingsByDept[deptKey] = [];
-      if (err.status === 403) alert("Access denied - only IT, Owner, ACC, and Admin can view the sales report.");
-    }
-  }
-
-  function groupBySupplier(rows) {
-    var groups = {};
-    rows.forEach(function (r) {
-      var currency = r.currency || "EGP";
-      var key = r.supplier + "||" + currency;
-      if (!groups[key]) groups[key] = { supplier: r.supplier || "Unspecified", currency: currency, net: 0, profit: 0, count: 0 };
-      groups[key].net = Math.round((groups[key].net + Number(r.net_rate)) * 100) / 100;
-      groups[key].profit = Math.round((groups[key].profit + Number(r.profit)) * 100) / 100;
-      groups[key].count += 1;
-    });
-    return Object.values(groups).sort(function (a, b) { return b.net - a.net; });
-  }
+  var DEPT_DISPLAY = { flight: "Flights", hotel: "Hotels", visa: "Visas", car: "Cars" };
+  var analyticsChartInstances = { trend: null, department: null, suppliers: null };
 
   function renderAccountingPackage() {
     var body = document.getElementById("module-body");
-    body.innerHTML = DEPARTMENTS.map(function (dept) {
-      return "<div class=\"dept-analysis-card\" id=\"dept-card-" + dept.key + "\">" +
-        "<div class=\"dept-analysis-card__header\">" +
-          "<div class=\"dept-analysis-card__title\">" + dept.label + "</div>" +
-          "<button class=\"btn btn--ghost\" data-view-full-report=\"" + dept.key + "\" style=\"font-size:12px; display:flex; align-items:center; gap:6px;\">" +
-            "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" width=\"14\" height=\"14\"><path d=\"M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg> View Full Sales Report" +
-          "</button>" +
+    body.innerHTML =
+      "<div class=\"analysis-kpi-grid\">" +
+        "<div class=\"analysis-kpi-card\">" +
+          "<div class=\"analysis-kpi-card__label\">Total Revenue</div>" +
+          "<div class=\"analysis-kpi-card__value\" id=\"kpi-revenue\">-</div>" +
         "</div>" +
-        "<div class=\"dept-analysis-card__chart-wrap\"><canvas id=\"chart-" + dept.key + "\"></canvas></div>" +
-        "<div class=\"ledger-scroll\"><table class=\"acc-table\">" +
-          "<thead><tr><th>Supplier</th><th>Currency</th><th class=\"num\">Net Total</th><th class=\"num\">Profit Total</th><th class=\"num\">Bookings</th></tr></thead>" +
-          "<tbody id=\"dept-table-body-" + dept.key + "\"></tbody>" +
-        "</table></div>" +
-        "<div class=\"empty-state\" id=\"dept-empty-" + dept.key + "\" style=\"display:none;\"><p>No confirmed bookings yet for this department</p></div>" +
+        "<div class=\"analysis-kpi-card\">" +
+          "<div class=\"analysis-kpi-card__label\">Net Profit</div>" +
+          "<div class=\"analysis-kpi-card__value\" id=\"kpi-profit\">-</div>" +
+          "<div class=\"analysis-kpi-card__badge\" id=\"kpi-margin\">-</div>" +
+        "</div>" +
+        "<div class=\"analysis-kpi-card\">" +
+          "<div class=\"analysis-kpi-card__label\">Active Bookings</div>" +
+          "<div class=\"analysis-kpi-card__value\" id=\"kpi-bookings\">-</div>" +
+          "<div class=\"analysis-kpi-card__badge\" id=\"kpi-pending\">-</div>" +
+        "</div>" +
+        "<div class=\"analysis-kpi-card\">" +
+          "<div class=\"analysis-kpi-card__label\">Outstanding Receivables</div>" +
+          "<div class=\"analysis-kpi-card__value analysis-kpi-card__value--danger\" id=\"kpi-receivables\">-</div>" +
+        "</div>" +
+      "</div>" +
+      "<div class=\"analysis-chart-grid\">" +
+        "<div class=\"analysis-chart-card analysis-chart-card--wide\">" +
+          "<div class=\"analysis-chart-card__title\">Revenue vs Profit (12 months)</div>" +
+          "<div class=\"analysis-chart-card__canvas-wrap\"><canvas id=\"chart-analysis-trend\"></canvas></div>" +
+        "</div>" +
+        "<div class=\"analysis-chart-card\">" +
+          "<div class=\"analysis-chart-card__title\">Revenue by Department</div>" +
+          "<div class=\"analysis-chart-card__canvas-wrap\"><canvas id=\"chart-analysis-department\"></canvas></div>" +
+        "</div>" +
+      "</div>" +
+      "<div class=\"analysis-chart-card\">" +
+        "<div class=\"analysis-chart-card__title\">Top Suppliers by Revenue</div>" +
+        "<div class=\"analysis-chart-card__canvas-wrap\"><canvas id=\"chart-analysis-suppliers\"></canvas></div>" +
       "</div>";
-    }).join("");
 
-    document.querySelectorAll("[data-view-full-report]").forEach(function (btn) {
-      btn.addEventListener("click", function () { openFullReportModal(btn.dataset.viewFullReport); });
-    });
-
-    DEPARTMENTS.forEach(function (dept) {
-      loadDeptBookings(dept.key).then(function () {
-        renderDeptTable(dept.key);
-        renderDeptChart(dept.key);
-      });
-    });
+    loadAnalytics();
   }
 
-  function renderDeptTable(deptKey) {
-    var groups = groupBySupplier(bookingsByDept[deptKey]);
-    var tbody = document.getElementById("dept-table-body-" + deptKey);
-    var empty = document.getElementById("dept-empty-" + deptKey);
-    if (groups.length === 0) { empty.style.display = "block"; tbody.innerHTML = ""; return; }
-    empty.style.display = "none";
-
-    tbody.innerHTML = groups.map(function (g) {
-      return "<tr>" +
-        "<td class=\"cell-primary\">" + escapeHtml(g.supplier) + "</td>" +
-        "<td>" + escapeHtml(g.currency) + "</td>" +
-        "<td class=\"num\">" + fmtMoney(g.net) + "</td>" +
-        "<td class=\"num amount-in\">" + fmtMoney(g.profit) + "</td>" +
-        "<td class=\"num\">" + g.count + "</td>" +
-      "</tr>";
-    }).join("");
-  }
-
-  function renderDeptChart(deptKey) {
-    var canvas = document.getElementById("chart-" + deptKey);
-    var groups = groupBySupplier(bookingsByDept[deptKey]);
-
-    if (chartInstances[deptKey]) { chartInstances[deptKey].destroy(); chartInstances[deptKey] = null; }
-    if (typeof Chart === "undefined" || groups.length === 0) return;
-
-    var labels = groups.map(function (g) { return g.supplier; });
-    var data = groups.map(function (g) { return g.net; });
-    var colors = groups.map(function (g) { return colorForSupplier(g.supplier); });
-
-    var plugins = [];
-    if (typeof ChartDataLabels !== "undefined") plugins.push(ChartDataLabels);
-
-    chartInstances[deptKey] = new Chart(canvas, {
-      type: "bar",
-      data: { labels: labels, datasets: [{ label: "Net Volume", data: data, backgroundColor: colors }] },
-      plugins: plugins,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: { padding: { top: 24 } },
-        scales: {
-          y: { beginAtZero: true, ticks: { callback: function (v) { if (v >= 1000000) return (v / 1000000) + "M"; if (v >= 1000) return (v / 1000) + "K"; return v; } } },
-          x: { ticks: { display: false } },
-        },
-        plugins: {
-          legend: { display: false },
-          datalabels: {
-            anchor: "end",
-            align: "top",
-            color: "#1a1a1a",
-            font: { weight: "bold", size: 11 },
-            formatter: function (value, ctx) { return ctx.chart.data.labels[ctx.dataIndex]; },
-            clip: false,
-          },
-          tooltip: {
-            callbacks: {
-              label: function (ctx) {
-                return "Net: " + Number(ctx.parsed.y).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  function openFullReportModal(deptKey) {
-    var rows = bookingsByDept[deptKey].slice().sort(function (a, b) { return parseLocalDate(b.date) - parseLocalDate(a.date); });
-    var deptLabel = (DEPARTMENTS.find(function (d) { return d.key === deptKey; }) || {}).label;
-    document.getElementById("supplier-detail-title").textContent = deptLabel + " - Full Sales Report";
-
-    var body = document.getElementById("supplier-detail-body");
-    if (rows.length === 0) {
-      body.innerHTML = "<p style=\"font-size:12.5px; color:var(--text-faint);\">No bookings found.</p>";
-    } else {
-      body.innerHTML =
-        "<div class=\"ledger-scroll\"><table class=\"acc-table\">" +
-          "<thead><tr><th>Date</th><th>Customer</th><th>Supplier</th><th class=\"num\">Net</th><th class=\"num\">Selling</th><th class=\"num\">Profit</th></tr></thead>" +
-          "<tbody>" + rows.map(function (r) {
-            return "<tr>" +
-              "<td>" + escapeHtml(r.date || "-") + "</td>" +
-              "<td class=\"cell-primary\">" + escapeHtml(r.passenger_name) + "</td>" +
-              "<td>" + escapeHtml(r.supplier || "-") + "</td>" +
-              "<td class=\"num\">" + fmtMoney(r.net_rate) + " " + escapeHtml(r.currency) + "</td>" +
-              "<td class=\"num\">" + fmtMoney(r.selling_rate) + " " + escapeHtml(r.currency) + "</td>" +
-              "<td class=\"num amount-in\">" + fmtMoney(r.profit) + " " + escapeHtml(r.currency) + "</td>" +
-            "</tr>";
-          }).join("") + "</tbody>" +
-        "</table></div>";
+  async function loadAnalytics() {
+    try {
+      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.BOOKINGS_ANALYTICS);
+      renderAnalyticsKpis(result.data);
+      renderTrendChart(result.data.monthly_trend);
+      renderDepartmentChart(result.data.by_department);
+      renderSuppliersChart(result.data.top_suppliers);
+    } catch (err) {
+      var body = document.getElementById("module-body");
+      if (body) body.innerHTML = "<div class=\"empty-state\"><p>Failed to load analytics.</p></div>";
     }
-    document.getElementById("modal-supplier-detail").classList.add("is-open");
+  }
+
+  function renderAnalyticsKpis(data) {
+    document.getElementById("kpi-revenue").textContent = fmtMoney(data.revenue) + " EGP";
+    document.getElementById("kpi-profit").textContent = fmtMoney(data.profit) + " EGP";
+    document.getElementById("kpi-margin").textContent = "Margin: " + data.margin_percent + "%";
+    document.getElementById("kpi-bookings").textContent = data.active_bookings;
+    document.getElementById("kpi-pending").textContent = data.pending_bookings + " pending confirmation";
+    document.getElementById("kpi-receivables").textContent = fmtMoney(data.outstanding_receivables) + " EGP";
+  }
+
+  function renderTrendChart(trend) {
+    var canvas = document.getElementById("chart-analysis-trend");
+    if (analyticsChartInstances.trend) { analyticsChartInstances.trend.destroy(); analyticsChartInstances.trend = null; }
+    if (typeof Chart === "undefined" || !canvas) return;
+
+    analyticsChartInstances.trend = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: trend.map(function (t) { return t.month; }),
+        datasets: [
+          { label: "Revenue", data: trend.map(function (t) { return Number(t.revenue); }), borderColor: "#3068E0", backgroundColor: "rgba(48,104,224,0.1)", fill: true, tension: 0.35 },
+          { label: "Profit", data: trend.map(function (t) { return Number(t.profit); }), borderColor: "#1F9D6E", backgroundColor: "rgba(31,157,110,0.15)", fill: true, tension: 0.35 },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "top" } } },
+    });
+  }
+
+  function renderDepartmentChart(byDept) {
+    var canvas = document.getElementById("chart-analysis-department");
+    if (analyticsChartInstances.department) { analyticsChartInstances.department.destroy(); analyticsChartInstances.department = null; }
+    if (typeof Chart === "undefined" || !canvas) return;
+
+    var palette = ["#3068E0", "#1F9D6E", "#E0A82E", "#8E44AD"];
+    analyticsChartInstances.department = new Chart(canvas, {
+      type: "doughnut",
+      data: {
+        labels: byDept.map(function (d) { return DEPT_DISPLAY[d.department] || d.department; }),
+        datasets: [{ data: byDept.map(function (d) { return Number(d.revenue); }), backgroundColor: palette }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } },
+    });
+  }
+
+  function renderSuppliersChart(topSuppliers) {
+    var canvas = document.getElementById("chart-analysis-suppliers");
+    if (analyticsChartInstances.suppliers) { analyticsChartInstances.suppliers.destroy(); analyticsChartInstances.suppliers = null; }
+    if (typeof Chart === "undefined" || !canvas) return;
+
+    analyticsChartInstances.suppliers = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: topSuppliers.map(function (s) { return s.supplier; }),
+        datasets: [{ label: "Revenue", data: topSuppliers.map(function (s) { return Number(s.revenue); }), backgroundColor: "#3068E0", borderRadius: 6 }],
+      },
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
   }
 
   MODULE_RENDERERS.accounting = renderAccountingPackage;

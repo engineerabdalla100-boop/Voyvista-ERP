@@ -138,6 +138,18 @@
   .history-item__title { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; }
   .history-item__meta { font-size: 11px; color: var(--text-faint); }
   .history-empty { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 12.5px; }
+
+  .analysis-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .analysis-kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 18px 20px; }
+  .analysis-kpi-card__label { font-size: 11.5px; color: var(--text-soft); font-weight: 600; margin-bottom: 6px; }
+  .analysis-kpi-card__value { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text); }
+  .analysis-kpi-card__value--danger { color: #B02A2A; }
+  .analysis-kpi-card__badge { font-size: 11px; font-weight: 700; color: var(--gold-deep); background: var(--gold-soft); display: inline-block; padding: 3px 9px; border-radius: 20px; margin-top: 8px; }
+  .analysis-chart-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .analysis-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 20px; margin-bottom: 16px; }
+  .analysis-chart-card__title { font-family: var(--font-display); font-weight: 700; font-size: 14px; margin-bottom: 14px; }
+  .analysis-chart-card__canvas-wrap { position: relative; height: 300px; }
+  @media (max-width: 1100px) { .analysis-kpi-grid { grid-template-columns: repeat(2, 1fr); } .analysis-chart-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -171,8 +183,8 @@
 
           <button class="package-card package-card--accounting" id="pkg-accounting" type="button" style="display:none;">
             <div class="package-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
-            <div class="package-card__title">Accounting</div>
-            <div class="package-card__desc">Sales report, review status, and supplier analysis</div>
+            <div class="package-card__title">Data Analysis</div>
+            <div class="package-card__desc">Revenue, profit, outstanding receivables, and supplier performance</div>
           </button>
         </div>
       </div>

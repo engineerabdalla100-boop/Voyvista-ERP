@@ -355,3 +355,55 @@ class BookingAutoCustomerCategoryTests(TestCase):
         res = self.client.get("/api/parties/?client_category=b2b")
         names = [p["full_name"] for p in res.data["results"]]
         self.assertNotIn("Filter Test Person", names)
+
+
+class BookingAnalyticsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="analytics_user", email="analytics_user@test.local", password="pass12345", role="OWNER")
+        res = self.client.post("/api/auth/login/", {"username": "analytics_user", "password": "pass12345"})
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {res.data['token']}")
+
+    def test_analytics_computes_revenue_and_profit(self):
+        Booking.objects.create(department="flight", date="2026-01-10", passenger_name="A", selling_rate="1000", net_rate="800", supplier="Egyptair", status="confirmed", created_by=self.user)
+        Booking.objects.create(department="hotel", date="2026-01-15", passenger_name="B", selling_rate="2000", net_rate="1500", supplier="Hilton", status="confirmed", created_by=self.user)
+
+        res = self.client.get("/api/bookings/analytics/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(Decimal(res.data["revenue"]), Decimal("3000"))
+        self.assertEqual(Decimal(res.data["profit"]), Decimal("700"))
+
+    def test_analytics_outstanding_receivables(self):
+        Booking.objects.create(
+            department="flight", date="2026-01-10", passenger_name="A", selling_rate="1000", net_rate="800",
+            status="confirmed", collection_status="partial", remaining_amount="400", created_by=self.user,
+        )
+        res = self.client.get("/api/bookings/analytics/")
+        self.assertEqual(Decimal(res.data["outstanding_receivables"]), Decimal("400"))
+
+    def test_analytics_by_department(self):
+        Booking.objects.create(department="flight", date="2026-01-10", passenger_name="A", selling_rate="1000", net_rate="800", status="confirmed", created_by=self.user)
+        Booking.objects.create(department="hotel", date="2026-01-10", passenger_name="B", selling_rate="500", net_rate="400", status="confirmed", created_by=self.user)
+
+        res = self.client.get("/api/bookings/analytics/")
+        depts = {row["department"]: row for row in res.data["by_department"]}
+        self.assertEqual(Decimal(depts["flight"]["revenue"]), Decimal("1000"))
+        self.assertEqual(Decimal(depts["hotel"]["revenue"]), Decimal("500"))
+
+    def test_analytics_top_suppliers(self):
+        Booking.objects.create(department="flight", date="2026-01-10", passenger_name="A", selling_rate="1000", net_rate="800", supplier="Egyptair", status="confirmed", created_by=self.user)
+        Booking.objects.create(department="flight", date="2026-01-11", passenger_name="B", selling_rate="500", net_rate="400", supplier="Egyptair", status="confirmed", created_by=self.user)
+
+        res = self.client.get("/api/bookings/analytics/")
+        supplier_row = next(s for s in res.data["top_suppliers"] if s["supplier"] == "Egyptair")
+        self.assertEqual(Decimal(supplier_row["revenue"]), Decimal("1500"))
+        self.assertEqual(supplier_row["count"], 2)
+
+    def test_analytics_not_limited_to_50_bookings(self):
+        Booking.objects.bulk_create([
+            Booking(department="flight", date="2026-01-10", passenger_name=f"P{i}", selling_rate="100", net_rate="80", supplier="Test Supplier", status="confirmed", created_by=self.user)
+            for i in range(200)
+        ])
+        res = self.client.get("/api/bookings/analytics/")
+        self.assertEqual(Decimal(res.data["revenue"]), Decimal("20000"))
+        self.assertEqual(res.data["active_bookings"], 200)

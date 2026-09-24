@@ -118,6 +118,78 @@ class BookingViewSet(viewsets.ModelViewSet):
         if review_status_filter:
             qs = qs.filter(review_status=review_status_filter)
         return Response(BookingSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsDataAccRole])
+    def analytics(self, request):
+        """
+        Everything the Data Analysis dashboard needs, computed live from
+        confirmed bookings -- revenue, profit, margin, outstanding
+        receivables, a 12-month revenue/profit trend, revenue split by
+        department, and top suppliers by volume. All aggregation runs
+        on the database side (Sum/Count), so this never loads the full
+        booking list into memory and is unaffected by row count.
+        """
+        from datetime import date
+        from django.db.models import Sum, Count
+        from django.db.models.functions import TruncMonth
+
+        confirmed = Booking.objects.filter(status=Booking.BookingStatus.CONFIRMED, record_status=Booking.RecordStatus.ACTIVE)
+
+        totals = confirmed.aggregate(revenue=Sum("selling_rate"), net=Sum("net_rate"))
+        revenue = totals["revenue"] or Decimal("0")
+        net = totals["net"] or Decimal("0")
+        profit = revenue - net
+        margin = float(profit / revenue * 100) if revenue else 0
+
+        active_count = confirmed.count()
+        pending_count = Booking.objects.filter(status=Booking.BookingStatus.PENDING, record_status=Booking.RecordStatus.ACTIVE).count()
+
+        receivables = confirmed.filter(collection_status=Booking.CollectionStatus.PARTIAL).aggregate(total=Sum("remaining_amount"))["total"] or Decimal("0")
+
+        # 12-month trend, oldest to newest. Computed with plain date
+        # arithmetic (no extra dependency) -- 365 days back covers a
+        # full year regardless of which day of the month "today" is.
+        one_year_ago = date.today() - __import__("datetime").timedelta(days=365)
+        trend_rows = (
+            confirmed.filter(date__gte=one_year_ago)
+            .annotate(month=TruncMonth("date"))
+            .values("month")
+            .annotate(revenue=Sum("selling_rate"), net=Sum("net_rate"))
+            .order_by("month")
+        )
+        trend = [
+            {"month": row["month"].strftime("%Y-%m"), "revenue": str(row["revenue"] or 0), "profit": str((row["revenue"] or 0) - (row["net"] or 0))}
+            for row in trend_rows
+        ]
+
+        by_department = list(
+            confirmed.values("department").annotate(revenue=Sum("selling_rate"), count=Count("id")).order_by("-revenue")
+        )
+        for row in by_department:
+            row["revenue"] = str(row["revenue"] or 0)
+
+        top_suppliers = list(
+            confirmed.exclude(supplier="").values("supplier").annotate(revenue=Sum("selling_rate"), net=Sum("net_rate"), count=Count("id")).order_by("-revenue")[:10]
+        )
+        for row in top_suppliers:
+            revenue_val = row["revenue"] or Decimal("0")
+            net_val = row["net"] or Decimal("0")
+            row["revenue"] = str(revenue_val)
+            row["profit"] = str(revenue_val - net_val)
+            del row["net"]
+
+        return Response({
+            "revenue": str(revenue),
+            "profit": str(profit),
+            "margin_percent": round(margin, 1),
+            "active_bookings": active_count,
+            "pending_bookings": pending_count,
+            "outstanding_receivables": str(receivables),
+            "monthly_trend": trend,
+            "by_department": by_department,
+            "top_suppliers": top_suppliers,
+        })
+
     @action(detail=False, methods=["get"], url_path="recent-activity", permission_classes=[IsAuthenticated, IsDataAccRole])
     def recent_activity(self, request):
         qs = (
