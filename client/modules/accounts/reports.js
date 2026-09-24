@@ -114,7 +114,6 @@
     try {
       var accounts = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
       document.getElementById("ledger-account").innerHTML = accounts.map(function (a) {
-      document.getElementById("ledger-account").innerHTML = accounts.map(function (a) {
         return "<option value=\"" + a.id + "\">" + escapeHtml(a.code) + " -- " + escapeHtml(a.name) + "</option>";
       }).join("");
     } catch (err) { /* silent */ }
