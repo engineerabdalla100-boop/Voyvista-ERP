@@ -47,7 +47,6 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("je-status-filter")?.addEventListener("change", renderJournalTable);
 
     document.getElementById("btn-open-add-account")?.addEventListener("click", function () {
-    document.getElementById("btn-open-add-account")?.addEventListener("click", function () {
       editingAccountId = null;
       resetAccountForm();
       document.getElementById("account-modal-title").textContent = "\u0625\u0636\u0627\u0641\u0629 \u062D\u0633\u0627\u0628";
@@ -268,8 +267,6 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("ledger-lines-body").innerHTML = "<tr><td colspan=\"6\" style=\"text-align:center; color:var(--coral);\">\u0641\u0634\u0644 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u062D\u0631\u0643\u0627\u062A.</td></tr>";
     }
   }
-  }
-
   // =========================================================================
   // Journal Entries -- requestAllPages from the start, no 50-record cap.
   // =========================================================================
