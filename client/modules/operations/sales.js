@@ -226,6 +226,45 @@
   // Save deal / activity
   // =========================================================================
 
+  function csvEscape(value) {
+    var s = value === null || value === undefined ? "" : String(value);
+    return /[",\r\n]/.test(s) ? "\"" + s.replace(/"/g, "\"\"") + "\"" : s;
+  }
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function exportDealsCsv() {
+    if (dealsCache.length === 0) { alert("\u0644\u0627 \u062A\u0648\u062C\u062F \u0635\u0641\u0642\u0627\u062A \u0644\u062A\u0635\u062F\u064A\u0631\u0647\u0627."); return; }
+
+    var stageLabels = {};
+    STAGES.forEach(function (s) { stageLabels[s.key] = s.label; });
+
+    var columns = ["id", "company_name", "contact_name", "contact_phone", "contact_email", "service_type", "estimated_value", "stage", "party_code", "booking_id", "created_at"];
+    var labels = ["ID", "\u0627\u0633\u0645 \u0627\u0644\u0634\u0631\u0643\u0629", "\u0627\u0644\u0645\u0633\u0624\u0648\u0644", "\u0627\u0644\u0647\u0627\u062A\u0641", "\u0627\u0644\u0628\u0631\u064A\u062F", "\u0646\u0648\u0639 \u0627\u0644\u062E\u062F\u0645\u0629", "\u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u062A\u0642\u062F\u064A\u0631\u064A\u0629", "\u0627\u0644\u0645\u0631\u062D\u0644\u0629", "\u0643\u0648\u062F \u0627\u0644\u0639\u0645\u064A\u0644", "\u0631\u0642\u0645 \u0627\u0644\u062D\u062C\u0632", "\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0625\u0646\u0634\u0627\u0621"];
+
+    var lines = [labels.map(csvEscape).join(",")];
+    dealsCache.forEach(function (d) {
+      var row = columns.map(function (c) {
+        if (c === "stage") return stageLabels[d.stage] || d.stage;
+        return d[c];
+      });
+      lines.push(row.map(csvEscape).join(","));
+    });
+
+    var csv = "\uFEFF" + lines.join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "Voyvista-Sales-Deals-" + todayISO() + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function saveDeal() {
     var payload = {
       company_name: document.getElementById("deal-company-name").value.trim(),
@@ -283,6 +322,7 @@
     on("btn-open-add-deal", "click", function () { openModal("modal-add-deal"); });
     on("btn-open-log-activity", "click", function () { openModal("modal-log-activity"); });
     on("btn-save-deal", "click", saveDeal);
+    on("btn-export-deals-csv", "click", exportDealsCsv);
     on("btn-save-activity", "click", saveActivity);
 
     document.querySelectorAll("[data-close-modal]").forEach(function (btn) {
