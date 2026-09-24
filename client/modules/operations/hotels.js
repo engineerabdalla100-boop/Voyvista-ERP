@@ -498,7 +498,6 @@
     } catch (err) { hotelsCache = []; }
     renderHotelGrid();
   }
-  }
 
   function starsHtml(rating) {
     if (!rating) return "<span style=\"color:var(--text-faint); font-size:11px;\">Not rated</span>";
