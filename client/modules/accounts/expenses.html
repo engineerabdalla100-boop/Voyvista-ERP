@@ -1,374 +1,347 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>المصروات والعهد | Voyvista ERP</title>
-<script src="/client/assets/js/config.js"></script>
-<script src="/client/assets/js/api_client.js"></script>
-<script src="/client/assets/js/auth.js"></script>
-<script src="/client/assets/js/components.js"></script>
-<script src="/client/assets/js/router.js"></script>
-<link rel="stylesheet" href="/client/assets/css/style.css" />
-<style>
-  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
-  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
-  .vv-modal-overlay.is-open { display: flex; }
-  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 700px; box-shadow: var(--shadow-lg); overflow: hidden; }
-  .vv-modal--wide { max-width: 900px; }
-  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .vv-modal__title { font-weight: 700; font-size: 15.5px; }
-  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-  .vv-modal__close svg { width: 14px; height: 14px; }
-  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
-  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); flex-wrap: wrap; }
-
-  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
-  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
-  .vv-field-row .vv-field { margin-bottom: 0; }
-  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
-  .vv-field input, .vv-field select, .vv-field textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
-  .vv-field input[type="file"] { padding: 6px; font-size: 11.5px; }
-  .attachment-preview { margin-top: 6px; font-size: 11px; color: var(--text-faint); display: flex; align-items: center; gap: 6px; }
-
-  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
-  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 16px 18px; }
-  .kpi-card__label { font-size: 11px; color: var(--text-soft); margin-bottom: 6px; }
-  .kpi-card__value { font-weight: 800; font-size: 18px; color: var(--text); }
-  .kpi-card__value.is-warning { color: var(--coral); }
-
-  .vv-tabs { display: flex; gap: 4px; margin-bottom: 22px; background: var(--canvas); padding: 4px; border-radius: var(--radius-md); width: fit-content; flex-wrap: wrap; }
-  .vv-tab { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--text-soft); }
-  .vv-tab.is-active { background: var(--surface); color: var(--gold-deep); box-shadow: var(--shadow-sm); }
-  .tab-view { display: none; }
-  .tab-view.is-active { display: block; }
-
-  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
-  table.ledger { width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 12px; }
-  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
-  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .ledger .num { text-align: left; font-variant-numeric: tabular-nums; }
-  .ledger input.inline-amount { width: 110px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
-
-  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-  .status-badge--draft { background: #EEF0F4; color: #5C6B82; }
-  .status-badge--submitted { background: #FBEAC8; color: #A6700F; }
-  .status-badge--approved { background: #E7EEFD; color: #3068E0; }
-  .status-badge--posted { background: var(--emerald-soft); color: var(--emerald); }
-  .status-badge--settled { background: var(--emerald-soft); color: var(--emerald); }
-  .status-badge--overdue { background: #FBE2E2; color: #B02A2A; }
-  .status-badge--inactive { background: #EEF0F4; color: #5C6B82; }
-
-  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .toolbar-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 240px; }
-  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
-  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
-  .filter-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); }
-
-  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
-  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
-  .row-action-btn svg { width: 13px; height: 13px; }
-
-  .btn-workflow-next { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-deep); cursor: pointer; margin-inline-end: 4px; }
-  .btn-confirm-post { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--emerald); background: var(--emerald-soft); color: var(--emerald); cursor: pointer; margin-inline-end: 4px; }
-  .btn-export { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); cursor: pointer; }
-  .btn-export svg { width: 14px; height: 14px; }
-
-  .section-title { display: flex; align-items: center; justify-content: space-between; margin: 34px 0 16px; }
-  .section-title h2 { font-weight: 700; font-size: 16px; color: var(--text); }
-
-  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
-  .recurring-note { background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12px; color: var(--text-soft); margin-bottom: 16px; }
-</style>
-</head>
-<body>
-
-<div class="app-shell">
-  <div id="app-sidebar"></div>
-
-  <div class="main">
-    <div id="app-topbar"></div>
-
-    <div class="content">
-      <div class="page-head">
-        <div>
-          <h1>المصروات والعهد</h1>
-          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">مصروات الشركة، العهد النقدية، والمصروات الدورية الشهرية</p>
-        </div>
-      </div>
-
-      <div class="kpi-grid" id="kpi-grid"></div>
-
-      <div class="vv-tabs">
-        <div class="vv-tab is-active" data-tab="adhoc">مصروات طارئة</div>
-        <div class="vv-tab" data-tab="recurring">مصروات دورية وثابتة</div>
-        <div class="vv-tab" data-tab="custody">عهد الموظين</div>
-      </div>
-
-      <!-- ============================= AD-HOC EXPENSES ============================= -->
-      <div class="tab-view is-active" id="tab-adhoc">
-        <div class="toolbar">
-          <div class="toolbar-filters">
-            <div class="ledger-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-              <input type="text" id="expense-search" placeholder="بحث بالئة أو البيان..." />
-            </div>
-            <input type="date" id="expense-filter-date" class="filter-select" />
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn-export" id="btn-export-expenses" type="button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-              تصدير Excel/CSV
-            </button>
-            <button class="btn btn--primary" id="btn-open-add-expense" type="button">+ إضاة مصرو طارئ</button>
-          </div>
-        </div>
-
-        <div class="ledger-scroll">
-          <table class="ledger" id="expenses-table">
-            <thead>
-              <tr><th>التاريخ</th><th>الئة</th><th>البيان</th><th>مرجع الحجز</th><th class="num">المبلغ</th><th>طريقة الدع</th><th>مرق</th><th>الحالة</th><th>الإجراءات</th></tr>
-            </thead>
-            <tbody id="expenses-table-body"></tbody>
-          </table>
-        </div>
-        <div class="empty-state" id="expenses-empty" style="display:none;"><p>لا توجد مصروات مسجّلة بعد.</p></div>
-      </div>
-
-      <!-- ============================= RECURRING EXPENSES ============================= -->
-      <div class="tab-view" id="tab-recurring">
-
-        <div class="section-title" style="margin-top:0;">
-          <h2>جدول الرواتب</h2>
-          <button class="btn btn--ghost" id="btn-add-payroll-row" type="button">+ إضاة موظ</button>
-        </div>
-        <div class="recurring-note">أدخل راتب كل موظ والخصم (إن وجد) لهذا الشهر. الصاي يحسب تلقائيًا. عند الضغط على "صر الرواتب"، يتم صر إجمالي كل الموظين دعة واحدة من الخزينة.</div>
-
-        <div class="vv-field-row" style="max-width:500px;">
-          <div class="vv-field"><label>حساب الخزينة (الدع منه)</label><select id="payroll-treasury-account"></select></div>
-          <div class="vv-field"><label>حساب مصرو الرواتب</label><select id="payroll-expense-account"></select></div>
-        </div>
-
-        <div class="ledger-scroll">
-          <table class="ledger" id="payroll-table">
-            <thead>
-              <tr><th>اسم الموظ</th><th>المسمى الوظيي</th><th class="num">الراتب الأساسي</th><th class="num">الخصم</th><th class="num">الصاي</th><th></th></tr>
-            </thead>
-            <tbody id="payroll-table-body"></tbody>
-            <tfoot>
-              <tr style="font-weight:800; background:var(--canvas);">
-                <td colspan="4">الإجمالي (Total)</td>
-                <td class="num" id="payroll-total">0.00</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <div style="margin-top:14px; margin-bottom:36px;">
-          <button class="btn btn--primary" id="btn-post-payroll" type="button">صر الرواتب</button>
-        </div>
-
-        <div class="section-title">
-          <h2>مصروات ثابتة أخرى (إيجار، واتير...)</h2>
-          <button class="btn btn--ghost" id="btn-open-add-template" type="button">+ إضاة بند ثابت جديد</button>
-        </div>
-
-        <div class="ledger-scroll">
-          <table class="ledger" id="recurring-table">
-            <thead>
-              <tr><th>البند</th><th>الئة</th><th class="num">المبلغ لهذا الشهر</th><th>حساب الخزينة</th><th>الحالة</th><th>الإجراءات</th></tr>
-            </thead>
-            <tbody id="recurring-table-body"></tbody>
-          </table>
-        </div>
-        <div class="empty-state" id="recurring-empty" style="display:none;"><p>لا توجد بنود دورية بعد.</p></div>
-      </div>
-
-      <!-- ============================= CUSTODY ============================= -->
-      <div class="tab-view" id="tab-custody">
-        <div class="section-title" style="margin-top:0;">
-          <h2>عهد الموظين</h2>
-          <button class="btn btn--primary" id="btn-open-add-custody" type="button">+ إصدار عهدة</button>
-        </div>
-
-        <div class="toolbar">
-          <div class="ledger-search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input type="text" id="custody-search" placeholder="بحث باسم الموظ..." />
-          </div>
-        </div>
-
-        <div class="ledger-scroll">
-          <table class="ledger" id="custody-table">
-            <thead>
-              <tr><th>الرقم</th><th>التاريخ</th><th>الموظ</th><th>المسمى الوظيي</th><th class="num">المبلغ</th><th class="num">المصرو</th><th class="num">المتبقي</th><th>تاريخ التصية</th><th>الحالة</th><th>الإجراءات</th></tr>
-            </thead>
-            <tbody id="custody-table-body"></tbody>
-          </table>
-        </div>
-        <div class="empty-state" id="custody-empty" style="display:none;"><p>لا توجد عهد مسجّلة بعد.</p></div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<!-- ============================= ADD AD-HOC EXPENSE MODAL ============================= -->
-<div class="vv-modal-overlay" id="modal-add-expense">
-  <div class="vv-modal">
-    <div class="vv-modal__header">
-      <div class="vv-modal__title">إضاة مصرو طارئ</div>
-      <button class="vv-modal__close" data-close-modal="modal-add-expense" aria-label="إغلاق">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="vv-modal__body">
-      <div class="vv-field-row">
-        <div class="vv-field"><label>التاريخ</label><input type="date" id="ex-date" /></div>
-        <div class="vv-field"><label>الئة</label><input type="text" id="ex-category" placeholder="مثال: صيانة طارئة، ضياة..." /></div>
-      </div>
-      <div class="vv-field-row">
-        <div class="vv-field"><label>المبلغ</label><input type="number" min="0" step="0.01" id="ex-amount" value="0" /></div>
-        <div class="vv-field"><label>العملة</label>
-          <select id="ex-currency">
-            <option value="EGP">جنيه مصري (EGP)</option>
-            <option value="USD">دولار أمريكي (USD)</option>
-            <option value="SAR">ريال سعودي (SAR)</option>
-            <option value="EUR">يورو (EUR)</option>
-          </select>
-        </div>
-        <div class="vv-field"><label>سعر الصر</label><input type="number" min="0" step="0.0001" id="ex-exchange-rate" value="1" /></div>
-      </div>
-      <div class="vv-field-row">
-        <div class="vv-field"><label>رقم الاتورة / المستند</label><input type="text" id="ex-invoice-number" placeholder="اختياري" /></div>
-        <div class="vv-field"><label>رقم المل / كود الحجز</label><input type="text" id="ex-booking-ref" placeholder="اختياري" /></div>
-      </div>
-      <div class="vv-field-row">
-        <div class="vv-field">
-          <label>طريقة الدع</label>
-          <select id="ex-payment-method">
-            <option value="cash">نقدي</option>
-            <option value="bank">بنكي</option>
-            <option value="custody">عهدة</option>
-          </select>
-        </div>
-        <div class="vv-field" id="ex-treasury-field"><label>حساب الخزينة</label><select id="ex-treasury-account"></select></div>
-        <div class="vv-field" id="ex-custody-field" style="display:none;"><label>عهدة الموظ</label><select id="ex-custody"></select></div>
-      </div>
-      <div class="vv-field"><label>حساب المصرو (من شجرة الحسابات)</label><select id="ex-expense-account"></select></div>
-      <div class="vv-field-row">
-        <div class="vv-field"><label>قيمة الضريبة (اختياري)</label><input type="number" min="0" step="0.01" id="ex-vat-amount" value="0" /></div>
-        <div class="vv-field"><label>حساب الضريبة</label><select id="ex-vat-account"><option value="">-- بدون --</option></select></div>
-      </div>
-      <div class="vv-field"><label>البيان</label><input type="text" id="ex-description" placeholder="وص المصرو..." /></div>
-      <div class="vv-field">
-        <label>مرق (صورة الاتورة/الإيصال)</label>
-        <input type="file" id="ex-attachment" accept="image/*,application/pdf" />
-        <div class="attachment-preview" id="ex-attachment-preview"></div>
-      </div>
-    </div>
-    <div class="vv-modal__footer">
-      <button class="btn btn--ghost" data-close-modal="modal-add-expense" type="button">إلغاء</button>
-      <button class="btn btn--ghost" id="btn-save-expense-draft" type="button">حظ كمسوّدة</button>
-      <button class="btn btn--primary" id="btn-confirm-post-expense" type="button">تأكيد وصر ورًا</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================= ADD RECURRING TEMPLATE MODAL ============================= -->
-<div class="vv-modal-overlay" id="modal-add-template">
-  <div class="vv-modal">
-    <div class="vv-modal__header">
-      <div class="vv-modal__title">إضاة بند مصرو ثابت</div>
-      <button class="vv-modal__close" data-close-modal="modal-add-template" aria-label="إغلاق">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="vv-modal__body">
-      <div class="vv-field-row">
-        <div class="vv-field"><label>اسم البند</label><input type="text" id="tpl-name" placeholder="مثال: إيجار المقر، مرتبات..." /></div>
-        <div class="vv-field"><label>الئة</label><input type="text" id="tpl-category" placeholder="مثال: إيجار، رواتب..." /></div>
-      </div>
-      <div class="vv-field"><label>المبلغ الاتراضي الشهري</label><input type="number" min="0" step="0.01" id="tpl-amount" value="0" /></div>
-      <div class="vv-field-row">
-        <div class="vv-field"><label>حساب الخزينة (الدع منه)</label><select id="tpl-treasury-account"></select></div>
-        <div class="vv-field"><label>حساب المصرو</label><select id="tpl-expense-account"></select></div>
-      </div>
-    </div>
-    <div class="vv-modal__footer">
-      <button class="btn btn--ghost" data-close-modal="modal-add-template" type="button">إلغاء</button>
-      <button class="btn btn--primary" id="btn-save-template" type="button">حظ البند</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================= ADD CUSTODY MODAL ============================= -->
-<div class="vv-modal-overlay" id="modal-add-custody">
-  <div class="vv-modal">
-    <div class="vv-modal__header">
-      <div class="vv-modal__title">إصدار عهدة</div>
-      <button class="vv-modal__close" data-close-modal="modal-add-custody" aria-label="إغلاق">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="vv-modal__body">
-      <div class="vv-field-row">
-        <div class="vv-field"><label>التاريخ</label><input type="date" id="cu-date" /></div>
-        <div class="vv-field">
-          <label>الموظ</label>
-          <input type="text" id="cu-employee" list="employee-name-suggestions" placeholder="اكتب اسم الموظ..." />
-          <datalist id="employee-name-suggestions"></datalist>
-          <button type="button" id="btn-manage-employee-names" style="margin-top:6px; font-size:11px; padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--canvas); cursor:pointer;">إدارة الأسماء المحوظة</button>
-        </div>
-      </div>
-      <div class="vv-field-row">
-        <div class="vv-field"><label>المبلغ</label><input type="number" min="0" step="0.01" id="cu-amount" value="0" /></div>
-        <div class="vv-field"><label>العملة</label>
-          <select id="cu-currency">
-            <option value="EGP">جنيه مصري (EGP)</option>
-            <option value="USD">دولار أمريكي (USD)</option>
-            <option value="SAR">ريال سعودي (SAR)</option>
-          </select>
-        </div>
-        <div class="vv-field"><label>تاريخ استحقاق التصية</label><input type="date" id="cu-due-date" /></div>
-      </div>
-      <div class="vv-field"><label>حساب الخزينة (المصدر)</label><select id="cu-treasury-account"></select></div>
-      <div class="vv-field"><label>حساب العهدة (من شجرة الحسابات)</label><select id="cu-custody-account"></select></div>
-      <div class="vv-field"><label>البيان</label><input type="text" id="cu-description" placeholder="الغرض من العهدة..." /></div>
-    </div>
-    <div class="vv-modal__footer">
-      <button class="btn btn--ghost" data-close-modal="modal-add-custody" type="button">إلغاء</button>
-      <button class="btn btn--primary" id="btn-save-custody" type="button">حظ العهدة (كمسوّدة)</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    VVComponents.mount({ page: "acc_expenses", title: "المصروات والعهد" });
-  });
-</script>
-<script src="/client/modules/accounts/expenses.js"></script>
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>المصروفات والعهد | Voyvista ERP</title>
+<script src="/client/assets/js/config.js"></script>
+<script src="/client/assets/js/api_client.js"></script>
+<script src="/client/assets/js/auth.js"></script>
+<script src="/client/assets/js/components.js"></script>
+<script src="/client/assets/js/router.js"></script>
+<link rel="stylesheet" href="/client/assets/css/style.css" />
+<style>
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+  .vv-modal-overlay { position: fixed; inset: 0; background: rgba(15, 26, 48, 0.4); z-index: 80; display: none; align-items: flex-start; justify-content: center; padding: 30px 15px; overflow-y: auto; }
+  .vv-modal-overlay.is-open { display: flex; }
+  .vv-modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 600px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .vv-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .vv-modal__title { font-weight: 700; font-size: 15.5px; }
+  .vv-modal__close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-soft); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .vv-modal__close svg { width: 14px; height: 14px; }
+  .vv-modal__body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+  .vv-modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--canvas); }
+
+  .vv-field-row { display: flex; gap: 14px; margin-bottom: 14px; }
+  .vv-field { flex: 1; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .vv-field-row .vv-field { margin-bottom: 0; }
+  .vv-field label { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+  .vv-field input, .vv-field select { padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--surface); color: var(--text); font-family: inherit; }
+
+  .vv-tabs { display: flex; gap: 4px; margin-bottom: 22px; background: var(--canvas); padding: 4px; border-radius: var(--radius-md); width: fit-content; flex-wrap: wrap; }
+  .vv-tab { padding: 8px 20px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--text-soft); }
+  .vv-tab.is-active { background: var(--surface); color: var(--gold-deep); box-shadow: var(--shadow-sm); }
+  .tab-view { display: none; }
+  .tab-view.is-active { display: block; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .ledger-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; width: 260px; }
+  .ledger-search svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+  .ledger-search input { border: none; outline: none; font-size: 12.5px; width: 100%; background: transparent; color: var(--text); }
+
+  .ledger-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table.ledger { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 12px; }
+  .ledger thead th { text-align: right; font-size: 10.5px; color: var(--text-faint); font-weight: 700; padding: 9px 10px; border-bottom: 1px solid var(--border); background: var(--canvas); white-space: nowrap; }
+  .ledger tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .ledger .num { text-align: left; font-variant-numeric: tabular-nums; }
+
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .status-badge--draft { background: #EEF0F4; color: #5C6B82; }
+  .status-badge--submitted { background: #FBEAC8; color: #A6700F; }
+  .status-badge--approved { background: #E7EEFD; color: #3068E0; }
+  .status-badge--posted { background: var(--emerald-soft); color: var(--emerald); }
+  .status-badge--settled { background: #EEF0F4; color: #5C6B82; }
+  .status-badge--overdue { background: #FBE2E2; color: #B02A2A; }
+
+  .row-action-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text-soft); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-inline-start: 4px; }
+  .row-action-btn.is-danger { color: #B02A2A; border-color: #F2C4C4; }
+  .row-action-btn svg { width: 13px; height: 13px; }
+  .btn-workflow-next { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-deep); cursor: pointer; margin-inline-end: 4px; }
+  .btn-confirm-post { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--emerald); background: var(--emerald-soft); color: var(--emerald); cursor: pointer; margin-inline-end: 4px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 26px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 18px 20px; }
+  .kpi-card__label { font-size: 11.5px; color: var(--text-soft); font-weight: 600; margin-bottom: 6px; }
+  .kpi-card__value { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text); }
+  .kpi-card__value.is-warning { color: #B02A2A; }
+
+  .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); font-size: 12.5px; }
+  .recurring-note { font-size: 12px; color: var(--text-soft); background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 16px; }
+  .inline-amount { width: 90px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="app-sidebar"></div>
+
+  <div class="main">
+    <div id="app-topbar"></div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>المصروفات والعهد</h1>
+          <p style="font-size:12.5px; color:var(--text-soft); margin-top:4px;">مصروفات الشركة، العهد النقدية، والمصروفات الدورية الشهرية</p>
+        </div>
+      </div>
+
+      <div id="kpi-grid" class="kpi-grid"></div>
+
+      <div class="vv-tabs">
+        <div class="vv-tab is-active" data-tab="adhoc">مصروفات طارئة</div>
+        <div class="vv-tab" data-tab="recurring">مصروفات دورية وثابتة</div>
+        <div class="vv-tab" data-tab="custody">عهد الموظفين</div>
+      </div>
+
+      <!-- ============================= ADHOC EXPENSES TAB ============================= -->
+      <div class="tab-view is-active" id="tab-adhoc">
+        <div class="toolbar">
+          <div class="toolbar-filters">
+            <div class="ledger-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="expense-search" placeholder="بحث بالفئة أو البيان..." />
+            </div>
+            <input type="date" id="expense-filter-date" class="filter-select" style="padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm);" />
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn--ghost" id="btn-export-expenses" type="button">تصدير Excel/CSV</button>
+            <button class="btn btn--primary" id="btn-open-add-expense" type="button">+ إضافة مصروف طارئ</button>
+          </div>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="expenses-table">
+            <thead>
+              <tr><th>التاريخ</th><th>الفئة</th><th>البيان</th><th>مرجع الحجز</th><th class="num">المبلغ</th><th>طريقة الدفع</th><th>مرفق</th><th>الحالة</th><th>الإجراءات</th></tr>
+            </thead>
+            <tbody id="expenses-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="expenses-empty" style="display:none;"><p>لا توجد مصروفات مسجّلة بعد.</p></div>
+      </div>
+
+      <!-- ============================= RECURRING & PAYROLL TAB ============================= -->
+      <div class="tab-view" id="tab-recurring">
+        <h2 style="font-family:var(--font-display); font-size:15px; font-weight:700; margin-bottom:10px;">جدول الرواتب</h2>
+        <div class="recurring-note">أدخل راتب كل موظف والخصم (إن وجد) لهذا الشهر. الصافي يحسب تلقائيًا. عند الضغط على "صرف الرواتب"، يتم صرف إجمالي كل الموظفين دفعة واحدة من الخزينة.</div>
+
+        <div class="vv-field-row" style="max-width:500px;">
+          <div class="vv-field"><label>حساب الخزينة (الدفع منه)</label><select id="payroll-treasury-account"></select></div>
+          <div class="vv-field"><label>حساب مصروف الرواتب</label><select id="payroll-expense-account"></select></div>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="payroll-table">
+            <thead>
+              <tr><th>اسم الموظف</th><th class="num">الراتب الأساسي</th><th class="num">الخصم</th><th class="num">الصافي</th><th></th></tr>
+            </thead>
+            <tbody id="payroll-table-body"></tbody>
+            <tfoot>
+              <tr style="font-weight:800; background:var(--canvas);">
+                <td colspan="3">الإجمالي (Total)</td>
+                <td class="num" id="payroll-total">0.00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:14px; margin-bottom:32px;">
+          <button class="btn btn--ghost" id="btn-add-payroll-row" type="button">+ إضافة موظف</button>
+          <button class="btn btn--primary" id="btn-post-payroll" type="button">صرف الرواتب</button>
+        </div>
+
+        <h2 style="font-family:var(--font-display); font-size:15px; font-weight:700; margin-bottom:10px;">مصروفات ثابتة أخرى (إيجار، فواتير...)</h2>
+        <div style="margin-bottom:14px;">
+          <button class="btn btn--primary" id="btn-open-add-template" type="button">+ إضافة بند ثابت جديد</button>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="recurring-table">
+            <thead>
+              <tr><th>البند</th><th>الفئة</th><th class="num">المبلغ لهذا الشهر</th><th>حساب الخزينة</th><th>الحالة</th><th>الإجراءات</th></tr>
+            </thead>
+            <tbody id="recurring-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="recurring-empty" style="display:none;"><p>لا توجد بنود دورية بعد.</p></div>
+      </div>
+
+      <!-- ============================= CUSTODY TAB ============================= -->
+      <div class="tab-view" id="tab-custody">
+        <div class="toolbar">
+          <div class="ledger-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="custody-search" placeholder="بحث باسم الموظف..." />
+          </div>
+          <button class="btn btn--primary" id="btn-open-add-custody" type="button">+ إصدار عهدة</button>
+        </div>
+
+        <div class="ledger-scroll">
+          <table class="ledger" id="custody-table">
+            <thead>
+              <tr><th>الرقم</th><th>التاريخ</th><th>الموظف</th><th class="num">المبلغ</th><th class="num">المصروف</th><th class="num">المتبقي</th><th>تاريخ التصفية</th><th>الحالة</th><th>الإجراءات</th></tr>
+            </thead>
+            <tbody id="custody-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="custody-empty" style="display:none;"><p>لا توجد عهد مسجّلة بعد.</p></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ADD EXPENSE MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-add-expense">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">إضافة مصروف طارئ</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-expense" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field-row">
+        <div class="vv-field"><label>التاريخ</label><input type="date" id="ex-date" /></div>
+        <div class="vv-field"><label>الفئة</label><input type="text" id="ex-category" placeholder="مثال: صيانة طارئة، ضيافة..." /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>المبلغ</label><input type="number" min="0" step="0.01" id="ex-amount" value="0" /></div>
+        <div class="vv-field"><label>العملة</label>
+          <select id="ex-currency">
+            <option value="EGP">جنيه مصري (EGP)</option>
+            <option value="USD">دولار أمريكي (USD)</option>
+            <option value="SAR">ريال سعودي (SAR)</option>
+            <option value="EUR">يورو (EUR)</option>
+          </select>
+        </div>
+        <div class="vv-field"><label>سعر الصرف</label><input type="number" min="0" step="0.0001" id="ex-exchange-rate" value="1" /></div>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>رقم الفاتورة / المستند</label><input type="text" id="ex-invoice-number" placeholder="اختياري" /></div>
+        <div class="vv-field"><label>رقم الملف / كود الحجز</label><input type="text" id="ex-booking-ref" placeholder="اختياري" /></div>
+      </div>
+      <div class="vv-field">
+        <label>طريقة الدفع</label>
+        <select id="ex-payment-method">
+          <option value="cash">نقدي</option>
+          <option value="bank">بنكي</option>
+          <option value="custody">عهدة</option>
+        </select>
+      </div>
+      <div class="vv-field" id="ex-treasury-field"><label>حساب الخزينة</label><select id="ex-treasury-account"></select></div>
+      <div class="vv-field" id="ex-custody-field" style="display:none;"><label>عهدة الموظف</label><select id="ex-custody"></select></div>
+      <div class="vv-field"><label>حساب المصروف (من شجرة الحسابات)</label><select id="ex-expense-account"></select></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>قيمة الضريبة (اختياري)</label><input type="number" min="0" step="0.01" id="ex-vat-amount" value="0" /></div>
+        <div class="vv-field"><label>حساب الضريبة</label><select id="ex-vat-account"><option value="">-- بدون --</option></select></div>
+      </div>
+      <div class="vv-field"><label>البيان</label><input type="text" id="ex-description" placeholder="وصف المصروف..." /></div>
+      <div class="vv-field">
+        <label>مرفق (صورة الفاتورة/الإيصال)</label>
+        <input type="file" id="ex-attachment" accept="image/*,.pdf" />
+        <div id="ex-attachment-preview" style="font-size:11.5px; color:var(--text-soft); margin-top:6px;"></div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-expense" type="button">إلغاء</button>
+      <button class="btn btn--ghost" id="btn-save-expense-draft" type="button">حفظ كمسوّدة</button>
+      <button class="btn btn--primary" id="btn-confirm-post-expense" type="button">تأكيد وصرف فورًا</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ADD TEMPLATE MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-add-template">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">إضافة بند مصروف ثابت</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-template" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>اسم البند</label><input type="text" id="tpl-name" placeholder="مثال: إيجار المقر، مرتبات..." /></div>
+      <div class="vv-field"><label>الفئة</label><input type="text" id="tpl-category" placeholder="مثال: إيجار، رواتب..." /></div>
+      <div class="vv-field"><label>المبلغ الافتراضي الشهري</label><input type="number" min="0" step="0.01" id="tpl-amount" value="0" /></div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>حساب الخزينة (الدفع منه)</label><select id="tpl-treasury-account"></select></div>
+        <div class="vv-field"><label>حساب المصروف</label><select id="tpl-expense-account"></select></div>
+      </div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-template" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-template" type="button">حفظ البند</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ADD CUSTODY MODAL ============================= -->
+<div class="vv-modal-overlay" id="modal-add-custody">
+  <div class="vv-modal">
+    <div class="vv-modal__header">
+      <div class="vv-modal__title">إصدار عهدة</div>
+      <button class="vv-modal__close" data-close-modal="modal-add-custody" aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="vv-modal__body">
+      <div class="vv-field"><label>التاريخ</label><input type="date" id="cu-date" /></div>
+      <div class="vv-field">
+        <label>الموظف</label>
+        <input type="text" id="cu-employee" list="employee-name-suggestions" placeholder="اكتب اسم الموظف..." />
+        <datalist id="employee-name-suggestions"></datalist>
+        <button type="button" id="btn-manage-employee-names" style="margin-top:6px; font-size:11px; padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--canvas); cursor:pointer;">إدارة الأسماء المحفوظة</button>
+      </div>
+      <div class="vv-field-row">
+        <div class="vv-field"><label>المبلغ</label><input type="number" min="0" step="0.01" id="cu-amount" value="0" /></div>
+        <div class="vv-field"><label>العملة</label>
+          <select id="cu-currency">
+            <option value="EGP">جنيه مصري (EGP)</option>
+            <option value="USD">دولار أمريكي (USD)</option>
+            <option value="SAR">ريال سعودي (SAR)</option>
+          </select>
+        </div>
+        <div class="vv-field"><label>تاريخ استحقاق التصفية</label><input type="date" id="cu-due-date" /></div>
+      </div>
+      <div class="vv-field"><label>حساب الخزينة (المصدر)</label><select id="cu-treasury-account"></select></div>
+      <div class="vv-field"><label>حساب العهدة (من شجرة الحسابات)</label><select id="cu-custody-account"></select></div>
+      <div class="vv-field"><label>البيان</label><input type="text" id="cu-description" placeholder="الغرض من العهدة..." /></div>
+    </div>
+    <div class="vv-modal__footer">
+      <button class="btn btn--ghost" data-close-modal="modal-add-custody" type="button">إلغاء</button>
+      <button class="btn btn--primary" id="btn-save-custody" type="button">حفظ العهدة (كمسوّدة)</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============================= MANAGE EMPLOYEE NAMES MODAL ============================= -->
 <div class="vv-modal-overlay" id="modal-manage-employee-names">
   <div class="vv-modal" style="max-width:450px;">
     <div class="vv-modal__header">
-      <div class="vv-modal__title">  </div>
-      <button class="vv-modal__close" data-close-modal="modal-manage-employee-names" aria-label="">
+      <div class="vv-modal__title">إدارة أسماء الموظفين</div>
+      <button class="vv-modal__close" data-close-modal="modal-manage-employee-names" aria-label="إغلاق">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
     <div class="vv-modal__body">
       <div style="display:flex; gap:8px; margin-bottom:16px;">
-        <input type="text" id="new-employee-name-input" placeholder=" ..." style="flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:12.5px;" />
-        <button class="btn btn--primary" id="btn-add-employee-name" type="button"></button>
+        <input type="text" id="new-employee-name-input" placeholder="اسم جديد..." style="flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:12.5px;" />
+        <button class="btn btn--primary" id="btn-add-employee-name" type="button">إضافة</button>
       </div>
       <div id="employee-names-list"></div>
     </div>
   </div>
 </div>
 
-</body>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    VVComponents.mount({ page: "acc_expenses", title: "المصروفات والعهد" });
+  });
+</script>
+<script src="/client/modules/accounts/expenses.js"></script>
+</body>
 </html>
