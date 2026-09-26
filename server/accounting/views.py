@@ -11,8 +11,8 @@ from rest_framework.response import Response
 from parties.models import Party
 from users.models import User
 
-from .models import Account, Custody, ExpenseVoucher, JournalEntry, JournalLine, Voucher
-from .serializers import AccountSerializer, CustodySerializer, ExpenseVoucherSerializer, JournalEntrySerializer, VoucherSerializer
+from .models import Account, Custody, EmployeeName, ExpenseVoucher, JournalEntry, JournalLine, Voucher
+from .serializers import AccountSerializer, CustodySerializer, EmployeeNameSerializer, ExpenseVoucherSerializer, JournalEntrySerializer, VoucherSerializer
 
 from core.audit import log_event
 from core.base_models import AuditLog
@@ -190,7 +190,7 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
 
 
 class CustodyViewSet(viewsets.ModelViewSet):
-    queryset = Custody.objects.select_related("employee", "treasury_account", "custody_account", "created_by").all()
+    queryset = Custody.objects.select_related("treasury_account", "custody_account", "created_by").all()
     serializer_class = CustodySerializer
     permission_classes = [IsAuthenticated, IsAccountingRole]
 
@@ -199,9 +199,25 @@ class CustodyViewSet(viewsets.ModelViewSet):
         custody_status = self.request.query_params.get("status")
         if custody_status:
             qs = qs.filter(status=custody_status)
-        employee_id = self.request.query_params.get("employee")
-        if employee_id:
-            qs = qs.filter(employee_id=employee_id)
+        employee_name = self.request.query_params.get("employee_name")
+        if employee_name:
+            qs = qs.filter(employee_name__icontains=employee_name)
+        return qs
+
+
+class CustodyViewSet(viewsets.ModelViewSet):
+    queryset = Custody.objects.select_related("treasury_account", "custody_account", "created_by").all()
+    serializer_class = CustodySerializer
+    permission_classes = [IsAuthenticated, IsAccountingRole]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        custody_status = self.request.query_params.get("status")
+        if custody_status:
+            qs = qs.filter(status=custody_status)
+        employee_name = self.request.query_params.get("employee_name")
+        if employee_name:
+            qs = qs.filter(employee_name__icontains=employee_name)
         return qs
 
     def perform_create(self, serializer):
@@ -249,7 +265,7 @@ class CustodyViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "Status changed before issuing could complete -- please retry."}, status=status.HTTP_409_CONFLICT)
 
             entry = create_and_post_entry(
-                date=custody.date, description=f"Custody issued to {custody.employee.username} -- {custody.description}",
+                date=custody.date, description=f"Custody issued to {custody.employee_name} -- {custody.description}",
                 reference=custody.number,
                 lines_data=[(custody.custody_account, custody.amount, Decimal("0")), (custody.treasury_account, Decimal("0"), custody.amount)],
                 user=request.user,
@@ -279,7 +295,7 @@ class CustodyViewSet(viewsets.ModelViewSet):
             if remaining > 0:
                 entry = create_and_post_entry(
                     date=request.data.get("date") or custody.date,
-                    description=f"Custody settlement -- return of {remaining} from {custody.employee.username}",
+                    description=f"Custody settlement -- return of {remaining} from {custody.employee_name}",
                     reference=custody.number,
                     lines_data=[(custody.treasury_account, remaining, Decimal("0")), (custody.custody_account, Decimal("0"), remaining)],
                     user=request.user,
@@ -290,6 +306,21 @@ class CustodyViewSet(viewsets.ModelViewSet):
             custody.save(update_fields=["status", "settlement_entry"])
 
         return Response(CustodySerializer(custody).data)
+
+
+class EmployeeNameViewSet(viewsets.ModelViewSet):
+    """
+    A free-standing, reusable name list for payroll/custody -- not
+    tied to a login account. Names persist month to month once added,
+    and can be deleted freely from here whenever they're no longer
+    needed (e.g. someone who left).
+    """
+    queryset = EmployeeName.objects.all()
+    serializer_class = EmployeeNameSerializer
+    permission_classes = [IsAuthenticated, IsAccountingRole]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
 
 class ExpenseVoucherViewSet(viewsets.ModelViewSet):

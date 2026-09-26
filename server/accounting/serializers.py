@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Account, Custody, ExpenseVoucher, FinancialPeriod, Invoice, JournalEntry, JournalLine, RecurringExpenseTemplate, Voucher
+from .models import Account, Custody, EmployeeName, ExpenseVoucher, FinancialPeriod, Invoice, JournalEntry, JournalLine, RecurringExpenseTemplate, Voucher
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -140,20 +140,26 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         return instance
 
 class CustodySerializer(serializers.ModelSerializer):
-    employee_name = serializers.CharField(source="employee.username", read_only=True)
     remaining = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     created_by_name = serializers.CharField(source="created_by.username", read_only=True)
 
     class Meta:
         model = Custody
         fields = [
-            "id", "number", "date", "employee", "employee_name", "amount", "spent", "remaining",
+            "id", "number", "date", "employee_name", "amount", "spent", "remaining",
             "currency", "due_date",
             "treasury_account", "custody_account", "description", "status",
             "journal_entry", "settlement_entry",
             "created_by", "created_by_name", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "number", "spent", "status", "journal_entry", "settlement_entry", "created_by", "created_at", "updated_at"]
+
+
+class EmployeeNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeeName
+        fields = ["id", "name", "created_by", "created_at"]
+        read_only_fields = ["id", "created_by", "created_at"]
 
     def validate_amount(self, value):
         if value <= 0:

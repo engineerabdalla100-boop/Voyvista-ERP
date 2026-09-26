@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   function escapeHtml(value) {
@@ -43,6 +43,13 @@
     loadExpenses();
     loadCustody();
     loadTemplates();
+
+    document.getElementById("btn-manage-employee-names")?.addEventListener("click", function (e) {
+      if (e) e.preventDefault();
+      renderEmployeeNamesManageList();
+      openModal("modal-manage-employee-names");
+    });
+    document.getElementById("btn-add-employee-name")?.addEventListener("click", addEmployeeName);
 
     document.querySelectorAll("[data-tab]").forEach(function (tab) {
       tab.addEventListener("click", function () {
@@ -97,17 +104,55 @@
     try {
       accountsCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.ACCOUNTS_COA);
       populateAccountSelects();
-      populateAccountSelects();
     } catch (err) { /* silent */ }
   }
 
   async function loadEmployees() {
     try {
-      var result = await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEES);
-      employeesCache = result.data.results || result.data;
-      var select = document.getElementById("cu-employee");
-      if (select) select.innerHTML = employeesCache.map(function (e) { return "<option value=\"" + e.id + "\">" + escapeHtml(e.full_name) + "</option>"; }).join("");
-    } catch (err) { /* silent */ }
+      employeesCache = await VVApi.requestAllPages(VV_CONFIG.ENDPOINTS.EMPLOYEE_NAMES);
+      var datalist = document.getElementById("employee-name-suggestions");
+      if (datalist) datalist.innerHTML = employeesCache.map(function (e) { return "<option value=\"" + escapeHtml(e.name) + "\"></option>"; }).join("");
+    } catch (err) { employeesCache = []; }
+  }
+
+  function renderEmployeeNamesManageList() {
+    var wrap = document.getElementById("employee-names-list");
+    if (!wrap) return;
+    if (employeesCache.length === 0) {
+      wrap.innerHTML = "<p style=\"font-size:12px; color:var(--text-faint);\">\u0644\u0627 \u062A\u0648\u062C\u062F \u0623\u0633\u0645\u0627\u0621 \u0645\u062D\u0641\u0648\u0638\u0629 \u0628\u0639\u062F.</p>";
+      return;
+    }
+    wrap.innerHTML = employeesCache.map(function (e) {
+      return "<div style=\"display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);\">" +
+        "<span style=\"font-size:12.5px;\">" + escapeHtml(e.name) + "</span>" +
+        "<button type=\"button\" class=\"row-action-btn is-danger\" data-remove-employee-name=\"" + e.id + "\">&times;</button>" +
+      "</div>";
+    }).join("");
+    wrap.querySelectorAll("[data-remove-employee-name]").forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        try {
+          await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEE_NAME_DETAIL(btn.dataset.removeEmployeeName), { method: "DELETE" });
+          await loadEmployees();
+          renderEmployeeNamesManageList();
+        } catch (err) {
+          alert(err.message || "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0627\u0633\u0645.");
+        }
+      });
+    });
+  }
+
+  async function addEmployeeName() {
+    var input = document.getElementById("new-employee-name-input");
+    var name = input.value.trim();
+    if (!name) return;
+    try {
+      await VVApi.request(VV_CONFIG.ENDPOINTS.EMPLOYEE_NAMES, { method: "POST", body: { name: name } });
+      input.value = "";
+      await loadEmployees();
+      renderEmployeeNamesManageList();
+    } catch (err) {
+      alert(err.message || "\u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0627\u0633\u0645.");
+    }
   }
 
   function populateAccountSelects() {
@@ -462,7 +507,7 @@
   }
 
   // =========================================================================
-  // Payroll
+  // Payroll -- free-text employee names, not tied to login accounts.
   // =========================================================================
 
   function addPayrollRow() {
@@ -471,23 +516,14 @@
     var tbody = document.getElementById("payroll-table-body");
     var row = document.createElement("tr");
     row.dataset.payrollRow = rowId;
-    var employeeOptions = "<option value=\"\">-- \u0627\u062E\u062A\u0631 \u0645\u0648\u0638\u0641 --</option>" + employeesCache.map(function (e) {
-      return "<option value=\"" + e.id + "\" data-dept=\"" + escapeHtml(e.department || "") + "\">" + escapeHtml(e.full_name) + "</option>";
-    }).join("");
     row.innerHTML =
-      "<td><select class=\"filter-select\" style=\"width:170px;\" data-payroll-employee=\"" + rowId + "\">" + employeeOptions + "</select></td>" +
-      "<td data-payroll-dept=\"" + rowId + "\">-</td>" +
+      "<td><input type=\"text\" list=\"employee-name-suggestions\" style=\"width:170px; padding:7px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px;\" placeholder=\"\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641...\" data-payroll-employee=\"" + rowId + "\" /></td>" +
       "<td class=\"num\"><input type=\"number\" min=\"0\" step=\"0.01\" class=\"inline-amount\" value=\"0\" data-payroll-salary=\"" + rowId + "\" /></td>" +
       "<td class=\"num\"><input type=\"number\" min=\"0\" step=\"0.01\" class=\"inline-amount\" value=\"0\" data-payroll-deduction=\"" + rowId + "\" /></td>" +
       "<td class=\"num\" data-payroll-net=\"" + rowId + "\">0.00</td>" +
       "<td><button class=\"row-action-btn is-danger\" data-payroll-remove=\"" + rowId + "\" title=\"\u062D\u0630\u0641\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button></td>";
     tbody.appendChild(row);
 
-    row.querySelector("[data-payroll-employee]").addEventListener("change", function (e) {
-      var selected = e.target.options[e.target.selectedIndex];
-      var dept = selected ? selected.dataset.dept : "";
-      row.querySelector("[data-payroll-dept]").textContent = dept || "-";
-    });
     row.querySelectorAll("[data-payroll-salary], [data-payroll-deduction]").forEach(function (input) {
       input.addEventListener("input", updatePayrollTotals);
     });
@@ -522,9 +558,7 @@
     var hasEmptyName = false;
     rows.forEach(function (row) {
       var rowId = row.dataset.payrollRow;
-      var select = document.querySelector("[data-payroll-employee=\"" + rowId + "\"]");
-      var selected = select.options[select.selectedIndex];
-      var name = selected && select.value ? selected.textContent : "";
+      var name = document.querySelector("[data-payroll-employee=\"" + rowId + "\"]").value.trim();
       if (!name) hasEmptyName = true;
       lines.push({
         employee_name: name,
@@ -533,7 +567,7 @@
       });
     });
 
-    if (hasEmptyName) { alert("\u0627\u062E\u062A\u0631 \u0645\u0648\u0638\u0641 \u0644\u0643\u0644 \u0635\u0641.\u060C \u0623\u0648 \u0627\u062D\u0630\u0641 \u0627\u0644\u0635\u0641\u0648\u0641 \u0627\u0644\u0641\u0627\u0631\u063A\u0629."); return; }
+    if (hasEmptyName) { alert("\u0627\u0643\u062A\u0628 \u0627\u0633\u0645 \u0644\u0643\u0644 \u0635\u0641.\u060C \u0623\u0648 \u0627\u062D\u0630\u0641 \u0627\u0644\u0635\u0641\u0648\u0641 \u0627\u0644\u0641\u0627\u0631\u063A\u0629."); return; }
     if (!confirm("\u0635\u0631\u0641 \u0625\u062C\u0645\u0627\u0644\u064A \u0631\u0648\u0627\u062A\u0628 " + lines.length + " \u0645\u0648\u0638\u0641 \u062F\u0641\u0639\u0629 \u0648\u0627\u062D\u062F\u0629\u061F")) return;
 
     try {
@@ -544,13 +578,14 @@
       document.getElementById("payroll-table-body").innerHTML = "";
       updatePayrollTotals();
       await loadExpenses();
+      await loadEmployees();
     } catch (err) {
       alert(err.message || "\u0641\u0634\u0644 \u0635\u0631\u0641 \u0627\u0644\u0631\u0648\u0627\u062A\u0628.");
     }
   }
 
   // =========================================================================
-  // Custody
+  // Custody -- free-text employee_name, not tied to a login account.
   // =========================================================================
 
   async function loadCustody() {
@@ -579,13 +614,10 @@
 
     tbody.innerHTML = rows.map(function (c) {
       var isOverdue = c.status === "posted" && c.due_date && c.due_date < todayStr;
-      var employee = employeesCache.find(function (e) { return e.id === c.employee; });
-      var jobTitle = employee && employee.department ? employee.department : "-";
       return "<tr>" +
         "<td class=\"mono\">" + escapeHtml(c.number) + "</td>" +
         "<td>" + escapeHtml(c.date) + "</td>" +
         "<td>" + escapeHtml(c.employee_name) + "</td>" +
-        "<td>" + escapeHtml(jobTitle) + "</td>" +
         "<td class=\"num\">" + fmtMoney(c.amount) + " " + escapeHtml(c.currency || "EGP") + "</td>" +
         "<td class=\"num\">" + fmtMoney(c.spent) + "</td>" +
         "<td class=\"num\">" + fmtMoney(c.remaining) + "</td>" +
@@ -661,6 +693,7 @@
 
   function resetCustodyForm() {
     document.getElementById("cu-date").value = todayISO();
+    document.getElementById("cu-employee").value = "";
     document.getElementById("cu-amount").value = "0";
     document.getElementById("cu-currency").value = "EGP";
     document.getElementById("cu-due-date").value = "";
@@ -670,7 +703,7 @@
   async function saveCustody() {
     var payload = {
       date: document.getElementById("cu-date").value,
-      employee: document.getElementById("cu-employee").value,
+      employee_name: document.getElementById("cu-employee").value.trim(),
       amount: document.getElementById("cu-amount").value,
       currency: document.getElementById("cu-currency").value,
       due_date: document.getElementById("cu-due-date").value || null,

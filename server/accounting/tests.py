@@ -339,7 +339,7 @@ class CustodyLifecycleTests(ExpenseAndCustodySetupMixin, TestCase):
 
     def _create_custody(self, amount="5000.00"):
         return self.client.post("/api/custody/", {
-            "date": "2026-09-16", "employee": self.employee.id, "amount": amount,
+            "date": "2026-09-16", "employee_name": "Ahmed Employee", "amount": amount,
             "treasury_account": self.cash["id"], "custody_account": self.custody_acc["id"], "description": "Flight tickets",
         }, format="json")
 
@@ -1004,7 +1004,7 @@ class CustodyEnhancementsTests(ExpenseAndCustodySetupMixin, TestCase):
 
     def test_custody_with_currency_and_due_date(self):
         res = self.client.post("/api/custody/", {
-            "date": "2026-09-17", "employee": self.employee.id, "amount": "5000.00",
+            "date": "2026-09-17", "employee_name": "Umrah Guide", "amount": "5000.00",
             "treasury_account": self.cash["id"], "custody_account": self.custody_acc["id"], "description": "Umrah trip",
             "currency": "SAR", "due_date": "2026-10-01",
         }, format="json")
@@ -1643,3 +1643,42 @@ class ProfitLossComparisonTests(TestCase):
     def test_no_comparison_key_populated_when_not_requested(self):
         res = self.client.get("/api/reports/profit-loss/?year=2026&month=9")
         self.assertIsNone(res.data["comparison"])
+
+
+class EmployeeNameFreeTextTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="emp_name_user", email="emp_name_user@test.local", password="pass12345", role="ACCOUNTANT")
+        res = self.client.post("/api/auth/login/", {"username": "emp_name_user", "password": "pass12345"})
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {res.data['token']}")
+
+    def test_add_employee_name(self):
+        res = self.client.post("/api/employee-names/", {"name": "Mohamed Ali"}, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["name"], "Mohamed Ali")
+
+    def test_employee_name_persists_and_lists(self):
+        self.client.post("/api/employee-names/", {"name": "Ahmed Samir"}, format="json")
+        res = self.client.get("/api/employee-names/")
+        names = [n["name"] for n in res.data["results"]]
+        self.assertIn("Ahmed Samir", names)
+
+    def test_delete_employee_name(self):
+        created = self.client.post("/api/employee-names/", {"name": "Sara Nabil"}, format="json").data
+        res = self.client.delete(f"/api/employee-names/{created['id']}/")
+        self.assertEqual(res.status_code, 204)
+        res2 = self.client.get("/api/employee-names/")
+        names = [n["name"] for n in res2.data["results"]]
+        self.assertNotIn("Sara Nabil", names)
+
+    def test_custody_uses_free_text_employee_name_no_user_link(self):
+        treasury = self.client.post("/api/accounts-coa/", {"code": "1001", "name": "Cash Box", "type": "asset", "nature": "debit"}, format="json").data
+        custody_acc = self.client.post("/api/accounts-coa/", {"code": "1002", "name": "Custody Holding", "type": "asset", "nature": "debit"}, format="json").data
+
+        res = self.client.post("/api/custody/", {
+            "date": "2026-01-01", "employee_name": "Field Driver Not On System",
+            "amount": "500.00", "treasury_account": treasury["id"], "custody_account": custody_acc["id"],
+        }, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["employee_name"], "Field Driver Not On System")
+        self.assertNotIn("employee", res.data)

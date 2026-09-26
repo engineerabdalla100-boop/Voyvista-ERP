@@ -2,12 +2,13 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .reports import ar_ap_aging_report, audit_log_report, department_performance_report, ledger_report, profit_loss_report, trial_balance_report
-from .views import AccountViewSet, BookingAccountingApprovalView, BookingCancellationView, CustodyViewSet, ExpenseVoucherViewSet, FinancialPeriodViewSet, InvoiceViewSet, JournalEntryViewSet, RecurringExpenseTemplateViewSet, VoucherViewSet
+from .views import AccountViewSet, BookingAccountingApprovalView, BookingCancellationView, CustodyViewSet, EmployeeNameViewSet, ExpenseVoucherViewSet, FinancialPeriodViewSet, InvoiceViewSet, JournalEntryViewSet, RecurringExpenseTemplateViewSet, VoucherViewSet
 
 router = DefaultRouter()
 router.register("accounts-coa", AccountViewSet, basename="account-coa")
 router.register("journal-entries", JournalEntryViewSet, basename="journal-entry")
 router.register("custody", CustodyViewSet, basename="custody")
+router.register("employee-names", EmployeeNameViewSet, basename="employee-name")
 router.register("expenses", ExpenseVoucherViewSet, basename="expense")
 router.register("vouchers", VoucherViewSet, basename="voucher")
 router.register("invoices", InvoiceViewSet, basename="invoice")

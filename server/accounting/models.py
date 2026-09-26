@@ -99,6 +99,26 @@ class JournalLine(models.Model):
     def __str__(self):
         return f"{self.account.code} - D:{self.debit} C:{self.credit}"
 
+class EmployeeName(models.Model):
+    """
+    A free-text name for payroll/custody -- deliberately NOT linked to
+    the User model, since most people paid through custody (drivers,
+    guides, field staff) never need a login account. Added and removed
+    freely from the UI; kept from month to month so a name typed once
+    doesn't need retyping every payroll run.
+    """
+
+    name = models.CharField(max_length=255, unique=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_employee_names")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Custody(models.Model):
     """
     An employee's cash advance. Amount is debited from the given
@@ -118,7 +138,7 @@ class Custody(models.Model):
 
     number = models.CharField(max_length=32, unique=True, db_index=True)
     date = models.DateField()
-    employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="custody_records")
+    employee_name = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=18, decimal_places=2)
     spent = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0"))
     treasury_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="custody_issuances")
